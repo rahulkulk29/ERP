@@ -142,6 +142,33 @@ class UserGenerator {
         // <-- FIX: Ensures 'academicYear' from form is prioritized
         const academicYear = userData.currentAcademicYear || userData.academicYear || userData.studentDetails?.academicYear || `${new Date().getFullYear()}-${(new Date().getFullYear() + 1).toString().slice(-2)}`;
 
+        // VALIDATION: Check if class and section exist before creating student
+        // This prevents adding students to non-existent classes created in super admin
+        if (className && section) {
+          const classesCollection = connection.collection('classes');
+          
+          // Find the class with matching className and academicYear
+          const classExists = await classesCollection.findOne({
+            className: className,
+            academicYear: academicYear,
+            isActive: true
+          });
+
+          if (!classExists) {
+            throw new Error(`❌ Class ${className} for academic year ${academicYear} does not exist. Please create this class in Super Admin > Academics first.`);
+          }
+
+          // Check if section exists in the class
+          if (!classExists.sections || !classExists.sections.includes(section)) {
+            throw new Error(`❌ Section ${section} does not exist in Class ${className}. Please add this section to the class first.`);
+          }
+
+          console.log(`✅ Class and Section validation passed: Class ${className}, Section ${section}, Year ${academicYear}`);
+        } else if (className || section) {
+          // If only one is provided (not both), throw error
+          throw new Error(`❌ Both class and section must be provided. Class: ${className || 'NOT PROVIDED'}, Section: ${section || 'NOT PROVIDED'}`);
+        }
+
         // Note: dateOfBirth object is already created above for password generation
 
         const gender = userData.gender || 'other';
@@ -185,6 +212,17 @@ class UserGenerator {
           },
 
           address, // <-- FIX: Uses new address object
+
+          stateId: userData.stateId || '',
+          state: userData.state || '',
+          districtId: userData.districtId || '',
+          district: userData.district || '',
+          districtText: userData.districtText || '',
+          talukaId: userData.talukaId || '',
+          taluka: userData.taluka || '',
+          talukaText: userData.talukaText || '',
+          locality: userData.locality || '',
+          cityVillageTown: userData.cityVillageTown || '',
 
           identity: {
             // <-- FIX: Reads from form field
@@ -869,6 +907,8 @@ class UserGenerator {
 
       // Update contact fields
       if (updateData.primaryPhone !== undefined) updateFields['contact.primaryPhone'] = updateData.primaryPhone;
+      if (updateData.studentMobile !== undefined || updateData.phone !== undefined) updateFields['contact.primaryPhone'] = updateData.studentMobile || updateData.phone;
+      if (updateData.studentEmail !== undefined || updateData.email !== undefined) updateFields['email'] = updateData.studentEmail || updateData.email;
       if (updateData.secondaryPhone !== undefined) updateFields['contact.secondaryPhone'] = updateData.secondaryPhone;
       if (updateData.whatsappNumber !== undefined) updateFields['contact.whatsappNumber'] = updateData.whatsappNumber;
 
@@ -905,6 +945,22 @@ class UserGenerator {
           if (updateData.permanentCountry !== undefined) updateFields['address.permanent.country'] = updateData.permanentCountry;
           if (updateData.permanentLandmark !== undefined) updateFields['address.permanent.landmark'] = updateData.permanentLandmark;
           if (updateData.sameAsPermanent !== undefined) updateFields['address.sameAsPermanent'] = updateData.sameAsPermanent;
+
+          // Simple address fields (for edit form compatibility)
+          if (updateData.address !== undefined) updateFields['address.permanent.street'] = updateData.address;
+          if (updateData.cityVillageTown !== undefined) updateFields['address.permanent.city'] = updateData.cityVillageTown;
+          if (updateData.locality !== undefined) updateFields['address.permanent.area'] = updateData.locality;
+          if (updateData.pinCode !== undefined) updateFields['address.permanent.pincode'] = updateData.pinCode;
+
+          // Location fields (state, district, taluka)
+          if (updateData.stateId !== undefined) updateFields['stateId'] = updateData.stateId;
+          if (updateData.districtId !== undefined) updateFields['districtId'] = updateData.districtId;
+          if (updateData.talukaId !== undefined) updateFields['talukaId'] = updateData.talukaId;
+          if (updateData.state !== undefined) updateFields['address.permanent.state'] = updateData.state;
+          if (updateData.district !== undefined) updateFields['district'] = updateData.district;
+          if (updateData.taluka !== undefined) updateFields['taluka'] = updateData.taluka;
+          if (updateData.districtText !== undefined) updateFields['districtText'] = updateData.districtText;
+          if (updateData.talukaText !== undefined) updateFields['talukaText'] = updateData.talukaText;
         }
       }
 
@@ -912,37 +968,59 @@ class UserGenerator {
       const rolePrefix = `${user.role}Details`;
       if (user.role === 'student') {
         // Academic fields
-        if (updateData.currentClass !== undefined || updateData.class !== undefined) updateFields[`${rolePrefix}.currentClass`] = updateData.currentClass || updateData.class;
-        if (updateData.currentSection !== undefined || updateData.section !== undefined) updateFields[`${rolePrefix}.currentSection`] = updateData.currentSection || updateData.section;
+        if (updateData.currentClass !== undefined || updateData.class !== undefined) updateFields[`${rolePrefix}.academic.currentClass`] = updateData.currentClass || updateData.class;
+        if (updateData.currentSection !== undefined || updateData.section !== undefined) updateFields[`${rolePrefix}.academic.currentSection`] = updateData.currentSection || updateData.section;
         if (updateData.rollNumber !== undefined) updateFields[`${rolePrefix}.rollNumber`] = updateData.rollNumber;
         if (updateData.admissionNumber !== undefined) updateFields[`${rolePrefix}.admissionNumber`] = updateData.admissionNumber;
-        if (updateData.admissionDate !== undefined) updateFields[`${rolePrefix}.admissionDate`] = updateData.admissionDate ? new Date(updateData.admissionDate) : null;
+        if (updateData.admissionDate !== undefined) updateFields[`${rolePrefix}.academic.admissionDate`] = updateData.admissionDate ? new Date(updateData.admissionDate) : null;
+        // Add enrollmentNo and tcNo to academic section
+        if (updateData.enrollmentNo !== undefined) updateFields[`${rolePrefix}.academic.enrollmentNo`] = updateData.enrollmentNo;
+        if (updateData.tcNo !== undefined) updateFields[`${rolePrefix}.academic.tcNo`] = updateData.tcNo;
+        if (updateData.tcNumber !== undefined) updateFields[`${rolePrefix}.academic.tcNo`] = updateData.tcNumber;
+        if (updateData.academicYear !== undefined) updateFields[`${rolePrefix}.academic.academicYear`] = updateData.academicYear;
+        if (updateData.mediumOfInstruction !== undefined) updateFields[`${rolePrefix}.mediumOfInstruction`] = updateData.mediumOfInstruction;
+        if (updateData.motherTongue !== undefined) updateFields[`${rolePrefix}.motherTongue`] = updateData.motherTongue;
+        if (updateData.motherTongueOther !== undefined) updateFields[`${rolePrefix}.motherTongueOther`] = updateData.motherTongueOther;
         // <-- LINT FIX: 'roleFile' to 'rolePrefix'
-        if (updateData.dateOfBirth !== undefined) updateFields[`${rolePrefix}.dateOfBirth`] = updateData.dateOfBirth ? new Date(updateData.dateOfBirth) : null;
-        if (updateData.gender !== undefined) updateFields[`${rolePrefix}.gender`] = updateData.gender;
+        if (updateData.dateOfBirth !== undefined) updateFields[`${rolePrefix}.personal.dateOfBirth`] = updateData.dateOfBirth ? new Date(updateData.dateOfBirth) : null;
+        if (updateData.gender !== undefined) updateFields[`${rolePrefix}.personal.gender`] = updateData.gender;
+
+        // Identity Documents - Caste Certificates
+        if (updateData.studentAadhaar !== undefined) updateFields[`${rolePrefix}.personal.studentAadhaar`] = updateData.studentAadhaar;
+        if (updateData.studentCasteCertNo !== undefined) updateFields[`${rolePrefix}.personal.studentCasteCertNo`] = updateData.studentCasteCertNo;
+        if (updateData.fatherCasteCertNo !== undefined) updateFields[`${rolePrefix}.family.father.casteCertNo`] = updateData.fatherCasteCertNo;
+        if (updateData.motherCasteCertNo !== undefined) updateFields[`${rolePrefix}.family.mother.casteCertNo`] = updateData.motherCasteCertNo;
 
         // Family fields - only update if non-empty
-        if (updateData.fatherName !== undefined && updateData.fatherName !== '') updateFields[`${rolePrefix}.fatherName`] = updateData.fatherName;
-        if (updateData.fatherPhone !== undefined && updateData.fatherPhone !== '') updateFields[`${rolePrefix}.fatherPhone`] = updateData.fatherPhone;
-        if (updateData.fatherEmail !== undefined && updateData.fatherEmail !== '') updateFields[`${rolePrefix}.fatherEmail`] = updateData.fatherEmail;
-        if (updateData.fatherOccupation !== undefined && updateData.fatherOccupation !== '') updateFields[`${rolePrefix}.fatherOccupation`] = updateData.fatherOccupation;
+        if (updateData.fatherName !== undefined && updateData.fatherName !== '') updateFields[`${rolePrefix}.family.father.name`] = updateData.fatherName;
+        if (updateData.fatherPhone !== undefined && updateData.fatherPhone !== '') updateFields[`${rolePrefix}.family.father.phone`] = updateData.fatherPhone;
+        if (updateData.fatherMobile !== undefined && updateData.fatherMobile !== '') updateFields[`${rolePrefix}.family.father.phone`] = updateData.fatherMobile;
+        if (updateData.fatherEmail !== undefined && updateData.fatherEmail !== '') updateFields[`${rolePrefix}.family.father.email`] = updateData.fatherEmail;
+        if (updateData.fatherOccupation !== undefined && updateData.fatherOccupation !== '') updateFields[`${rolePrefix}.family.father.occupation`] = updateData.fatherOccupation;
         if (updateData.fatherQualification !== undefined) {
-          updateFields['parents.father.qualification'] = updateData.fatherQualification;
+          updateFields[`${rolePrefix}.family.father.qualification`] = updateData.fatherQualification;
         } else if (updateData.fatherEducation !== undefined) {
           // Fallback if the FE sends only the legacy field
-          updateFields['parents.father.qualification'] = updateData.fatherEducation;
+          updateFields[`${rolePrefix}.family.father.qualification`] = updateData.fatherEducation;
         }
-        if (updateData.motherName !== undefined && updateData.motherName !== '') updateFields[`${rolePrefix}.motherName`] = updateData.motherName;
-        if (updateData.motherPhone !== undefined && updateData.motherPhone !== '') updateFields[`${rolePrefix}.motherPhone`] = updateData.motherPhone;
-        if (updateData.motherEmail !== undefined && updateData.motherEmail !== '') updateFields[`${rolePrefix}.motherEmail`] = updateData.motherEmail;
-        if (updateData.motherOccupation !== undefined && updateData.motherOccupation !== '') updateFields[`${rolePrefix}.motherOccupation`] = updateData.motherOccupation;
+        if (updateData.fatherAadhaar !== undefined) updateFields[`${rolePrefix}.family.father.aadhaar`] = updateData.fatherAadhaar;
+        if (updateData.fatherCaste !== undefined) updateFields[`${rolePrefix}.family.father.caste`] = updateData.fatherCaste;
+        
+        if (updateData.motherName !== undefined && updateData.motherName !== '') updateFields[`${rolePrefix}.family.mother.name`] = updateData.motherName;
+        if (updateData.motherPhone !== undefined && updateData.motherPhone !== '') updateFields[`${rolePrefix}.family.mother.phone`] = updateData.motherPhone;
+        if (updateData.motherMobile !== undefined && updateData.motherMobile !== '') updateFields[`${rolePrefix}.family.mother.phone`] = updateData.motherMobile;
+        if (updateData.motherEmail !== undefined && updateData.motherEmail !== '') updateFields[`${rolePrefix}.family.mother.email`] = updateData.motherEmail;
+        if (updateData.motherOccupation !== undefined && updateData.motherOccupation !== '') updateFields[`${rolePrefix}.family.mother.occupation`] = updateData.motherOccupation;
         if (updateData.motherQualification !== undefined) {
-          updateFields['parents.mother.qualification'] = updateData.motherQualification;
+          updateFields[`${rolePrefix}.family.mother.qualification`] = updateData.motherQualification;
         } else if (updateData.motherEducation !== undefined) {
           // Fallback if the FE sends only the legacy field
-          updateFields['parents.mother.qualification'] = updateData.motherEducation;
+          updateFields[`${rolePrefix}.family.mother.qualification`] = updateData.motherEducation;
         }
-        if (updateData.guardianName !== undefined && updateData.guardianName !== '') updateFields[`${rolePrefix}.guardianName`] = updateData.guardianName;
+        if (updateData.motherAadhaar !== undefined) updateFields[`${rolePrefix}.family.mother.aadhaar`] = updateData.motherAadhaar;
+        if (updateData.motherCaste !== undefined) updateFields[`${rolePrefix}.family.mother.caste`] = updateData.motherCaste;
+        
+        if (updateData.guardianName !== undefined && updateData.guardianName !== '') updateFields[`${rolePrefix}.family.guardian.name`] = updateData.guardianName;
         const guardianRelUpdateModern = updateData.guardianRelation || updateData.guardianRelationship || updateData.emergencyContactRelation;
         if (guardianRelUpdateModern !== undefined && guardianRelUpdateModern !== '') {
           // CRITICAL FIX 9 (BE): Map guardian relationship to studentDetails.family.guardian
@@ -952,11 +1030,11 @@ class UserGenerator {
         }
         // Personal fields
         if (updateData.bloodGroup !== undefined) updateFields[`${rolePrefix}.personal.bloodGroup`] = updateData.bloodGroup;
-        // <-- LINT FIX: 'roleFrefix' to 'rolePrefix'
-        if (updateData.nationality !== undefined) updateFields[`${rolePrefix}.nationality`] = updateData.nationality;
-        if (updateData.religion !== undefined) updateFields[`${rolePrefix}.religion`] = updateData.religion;
-        if (updateData.caste !== undefined || updateData.studentCaste !== undefined) updateFields[`${rolePrefix}.caste`] = updateData.caste || updateData.studentCaste;
-        if (updateData.category !== undefined || updateData.socialCategory !== undefined) updateFields[`${rolePrefix}.category`] = updateData.category || updateData.socialCategory;
+        if (updateData.placeOfBirth !== undefined) updateFields[`${rolePrefix}.personal.placeOfBirth`] = updateData.placeOfBirth;
+        if (updateData.nationality !== undefined) updateFields[`${rolePrefix}.personal.nationality`] = updateData.nationality;
+        if (updateData.religion !== undefined) updateFields[`${rolePrefix}.personal.religion`] = updateData.religion;
+        if (updateData.caste !== undefined || updateData.studentCaste !== undefined) updateFields[`${rolePrefix}.personal.caste`] = updateData.caste || updateData.studentCaste;
+        if (updateData.category !== undefined || updateData.socialCategory !== undefined) updateFields[`${rolePrefix}.personal.category`] = updateData.category || updateData.socialCategory;
         const transportModeUpdate = updateData.transportMode || updateData.mode;
         if (transportModeUpdate !== undefined) updateFields[`${rolePrefix}.transport.mode`] = transportModeUpdate;
         if (updateData.busRoute !== undefined) updateFields[`${rolePrefix}.transport.busRoute`] = updateData.busRoute;
@@ -965,10 +1043,10 @@ class UserGenerator {
         if (updateData.pickupTime !== undefined) updateFields[`${rolePrefix}.transport.pickupTime`] = updateData.pickupTime; // New field for completeness
         if (updateData.dropTime !== undefined) updateFields[`${rolePrefix}.transport.dropTime`] = updateData.dropTime;   // New field for completeness
 
-        // Banking fields
-        if (updateData.bankName !== undefined) updateFields[`${rolePrefix}.bankName`] = updateData.bankName;
-        if (updateData.bankAccountNo !== undefined || updateData.bankAccountNumber !== undefined) updateFields[`${rolePrefix}.bankAccountNo`] = updateData.bankAccountNo || updateData.bankAccountNumber;
-        if (updateData.ifscCode !== undefined || updateData.bankIFSC !== undefined) updateFields[`${rolePrefix}.bankIFSC`] = updateData.ifscCode || updateData.bankIFSC;
+        // Banking fields - save to nested financial.bankDetails structure
+        if (updateData.bankName !== undefined) updateFields[`${rolePrefix}.financial.bankDetails.bankName`] = updateData.bankName;
+        if (updateData.bankAccountNo !== undefined || updateData.bankAccountNumber !== undefined) updateFields[`${rolePrefix}.financial.bankDetails.accountNumber`] = updateData.bankAccountNo || updateData.bankAccountNumber;
+        if (updateData.ifscCode !== undefined || updateData.bankIFSC !== undefined) updateFields[`${rolePrefix}.financial.bankDetails.ifscCode`] = updateData.ifscCode || updateData.bankIFSC;
 
         // Medical fields
         if (updateData.allergies !== undefined) {
@@ -986,9 +1064,10 @@ class UserGenerator {
         if (updateData.disability !== undefined) updateFields[`${rolePrefix}.disability`] = updateData.disability;
         if (updateData.isRTECandidate !== undefined) updateFields[`${rolePrefix}.isRTECandidate`] = updateData.isRTECandidate;
 
-        // Mother tongue
+        // Mother tongue and medium of instruction
         if (updateData.motherTongue !== undefined) updateFields[`${rolePrefix}.motherTongue`] = updateData.motherTongue;
         if (updateData.motherTongueOther !== undefined) updateFields[`${rolePrefix}.motherTongueOther`] = updateData.motherTongueOther;
+        if (updateData.mediumOfInstruction !== undefined) updateFields[`${rolePrefix}.mediumOfInstruction`] = updateData.mediumOfInstruction;
 
         // Previous school
         const prevSchoolNameUpdate = updateData.previousSchoolName || updateData.previousSchool;
@@ -998,6 +1077,10 @@ class UserGenerator {
         if (updateData.previousClass !== undefined) {
           // CRITICAL FIX 11 (BE): Map previousSchool.lastClass
           updateFields[`${rolePrefix}.academic.previousSchool.lastClass`] = updateData.previousClass;
+        }
+        if (updateData.previousBoard !== undefined) {
+          // Map previousSchool.board
+          updateFields[`${rolePrefix}.academic.previousSchool.board`] = updateData.previousBoard;
         }
         if (updateData.migrationCertificate !== undefined) {
           // CRITICAL FIX 12 (BE): Map migrationCertificate to academic.previousSchool
@@ -1014,6 +1097,11 @@ class UserGenerator {
           updateFields[`${rolePrefix}.financial.economicStatus`] = updateData.economicStatus;
           updateFields[`${rolePrefix}.personal.economicStatus`] = updateData.economicStatus;
           updateFields.economicStatus = updateData.economicStatus; // Deprecated flat field
+        }
+        if (updateData.bplCardNo !== undefined || updateData.bplCardNumber !== undefined) {
+          // Map BPL card number to personal section
+          updateFields[`${rolePrefix}.personal.bplCardNo`] = updateData.bplCardNo || updateData.bplCardNumber;
+          updateFields.bplCardNo = updateData.bplCardNo || updateData.bplCardNumber; // Deprecated flat field
         }
         if (updateData.familyIncome !== undefined) {
           // CRITICAL FIX 15 (BE): Map familyIncome to financial and personal (for dual paths)

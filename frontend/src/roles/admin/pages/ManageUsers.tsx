@@ -1595,10 +1595,6 @@ const ManageUsers: React.FC = () => {
       // Previous School (top-level for form binding)
       previousSchoolName: '',
 
-      // Medical Information (top-level - note: allergies will be added below)
-      allergies: '',
-      medicalConditions: '',
-
       // Student Specific Fields (comprehensive Karnataka SATS)
       studentDetails: {
         // Academic Information
@@ -2456,6 +2452,13 @@ const ManageUsers: React.FC = () => {
         cityVillageTown: formData.cityVillageTown,
         locality: (formData as any).locality || formData.permanentArea || '',
         district: (formData as any).district || formData.districtText || '',
+        state: (formData as any).state || formData.permanentState || '',
+        stateId: (formData as any).stateId || '',
+        districtId: (formData as any).districtId || '',
+        talukaId: (formData as any).talukaId || '',
+        taluka: (formData as any).taluka || '',
+        districtText: (formData as any).districtText || '',
+        talukaText: (formData as any).talukaText || '',
 
         // Enhanced Name Structure (matching backend)
         name: {
@@ -3055,7 +3058,7 @@ const ManageUsers: React.FC = () => {
 
       // Basic Information
       enrollmentNo: sAcademic.enrollmentNo || userData.enrollmentNo || '',
-      tcNo: sAcademic.tcNo || userData.tcNo || '',
+      tcNo: sAcademic.tcNo || userData.tcNo || userData.tcNumber || '',
       role: userData.role || 'student',
 
       // Admission Details
@@ -3065,6 +3068,10 @@ const ManageUsers: React.FC = () => {
       mediumOfInstruction: userData.mediumOfInstruction || 'English',
       motherTongue: sPersonal.motherTongue || userData.motherTongue || '',
       motherTongueOther: sPersonal.motherTongueOther || userData.motherTongueOther || '',
+      admissionDate: formatDateForInput(sAcademic.admissionDate || userData.admissionDate || ''),
+      religion: sPersonal.religion || userData.religion || '',
+      rollNumber: sAcademic.rollNumber || userData.rollNumber || '',
+      admissionNumber: sAcademic.admissionNumber || userData.admissionNumber || '',
 
       // Student Details
       name: userData.name?.displayName ||
@@ -3109,7 +3116,6 @@ const ManageUsers: React.FC = () => {
       motherCasteOther: sMother.casteOther || '',
       socialCategory: sPersonal.category || '',
       socialCategoryOther: sPersonal.categoryOther || '',
-      religion: sPersonal.religion || '',
       religionOther: sPersonal.religionOther || '',
 
       // Economic Status
@@ -3124,12 +3130,17 @@ const ManageUsers: React.FC = () => {
 
       // Address Information
       address: userData.address?.permanent?.street || userData.address || '',
-      cityVillageTown: userData.address?.permanent?.city || '',
-      locality: userData.address?.permanent?.area || '',
-      taluka: userData.address?.permanent?.taluka || '',
-      district: userData.address?.permanent?.district || '',
+      cityVillageTown: userData.cityVillageTown || userData.address?.permanent?.city || '',
+      locality: userData.locality || userData.address?.permanent?.area || '',
+      taluka: userData.taluka || userData.address?.permanent?.taluka || '',
+      district: userData.district || userData.address?.permanent?.district || '',
       pinCode: userData.address?.permanent?.pincode || '',
       state: userData.address?.permanent?.state || '',
+      stateId: userData.stateId || '',
+      districtId: userData.districtId || '',
+      talukaId: userData.talukaId || '',
+      districtText: userData.districtText || '',
+      talukaText: userData.talukaText || '',
 
       // Mapped Address Fields
       permanentStreet: userData.address?.permanent?.street || '',
@@ -3158,10 +3169,13 @@ const ManageUsers: React.FC = () => {
       motherEmail: sMother.email || '',
 
       // School and Banking
-      schoolAdmissionDate: formatDateForInput(sAcademic.admissionDate || userData.schoolAdmissionDate || ''),
-      bankName: sBank.bankName || '',
-      bankAccountNo: sBank.accountNumber || '',
-      bankIFSC: sBank.ifscCode || '',
+      schoolAdmissionDate: formatDateForInput(sAcademic.admissionDate || userData.schoolAdmissionDate || userData.admissionDate || ''),
+      bankName: sBank.bankName || userData.bankName || '',
+      bankAccountNo: sBank.accountNumber || userData.bankAccountNo || userData.bankAccountNumber || '',
+      bankIFSC: sBank.ifscCode || userData.bankIFSC || userData.ifscCode || '',
+
+      // Enrollment and TC - FIX: Read from academic object
+      tcNumber: sAcademic.tcNo || userData.tcNo || userData.tcNumber || '',
 
       // FIX 3: Fallback to top-level phone if contact object is missing
       email: userData.email || '',
@@ -3182,31 +3196,51 @@ const ManageUsers: React.FC = () => {
       guardianRelation: sGuardian.relationship || '',
       fatherEducation: sFather.qualification || '',
       motherEducation: sMother.qualification || '',
-      familyIncome: sFather.annualIncome || sMother.annualIncome || '',
 
       // Emergency Contact
       emergencyContactName: userData.contact?.emergencyContact?.name || '',
       emergencyContactPhone: userData.contact?.emergencyContact?.phone || '',
       emergencyContactRelation: userData.contact?.emergencyContact?.relationship || '',
 
-      // Previous School
-      previousSchool: sAcademic.previousSchool?.name || '',
-      previousClass: sAcademic.previousSchool?.lastClass || '',
-      migrationCertificate: '',
+      // Previous School - FIX: Read from academic.previousSchool structure
+      previousSchool: sAcademic.previousSchool?.name || userData.previousSchool || userData.previousSchoolName || '',
+      previousSchoolName: sAcademic.previousSchool?.name || userData.previousSchoolName || userData.previousSchool || '',
+      previousClass: sAcademic.previousSchool?.lastClass || userData.previousClass || '',
+      migrationCertificate: sAcademic.previousSchool?.migrationCertificate || sAcademic.previousSchool?.tcNumber || userData.migrationCertificate || userData.tcNo || '',
+      previousBoard: sAcademic.previousSchool?.board || userData.previousBoard || '',
 
       // Other details
       aadhaarNumber: userData.identity?.aadharNumber || '',
       panNumber: userData.identity?.panNumber || '',
+      placeOfBirth: sPersonal.placeOfBirth || userData.placeOfBirth || '',
+
+      // Additional Identity Documents - Note: rationCardNumber is NOT in schema, stores in userData only
+      birthCertificateNumber: sPersonal.birthCertificateNumber || userData.birthCertificateNumber || '',
+      rationCardNumber: userData.rationCardNumber || '', // Stored only in flat userData
+      voterIdNumber: userData.voterIdNumber || '',
+      drivingLicenseNumber: userData.drivingLicenseNumber || '',
+      passportNumber: userData.passportNumber || '',
+
+      // Economic Status - Read from personal and financial
+      economicStatus: sPersonal.economicStatus || sFinance.economicStatus || userData.economicStatus || '',
+      bplCardNumber: sPersonal.bplCardNo || sFinance.bplCardNo || userData.bplCardNumber || userData.bplCardNo || '',
+      scholarshipDetails: sFinance.scholarshipDetails?.name || userData.scholarshipDetails || '',
+
+      // Family Income - Read from personal and financial
+      familyIncome: sPersonal.familyIncome || sFinance.familyIncome || sFather.annualIncome || sMother.annualIncome || userData.familyIncome || '',
 
       // Transport
-      transportMode: sTransport.mode || '',
-      busRoute: sTransport.busRoute || '',
-      pickupPoint: sTransport.pickupPoint || '',
+      transportMode: sTransport.mode || userData.transportMode || '',
+      busRoute: sTransport.busRoute || userData.busRoute || '',
+      pickupPoint: sTransport.pickupPoint || userData.pickupPoint || '',
+      dropPoint: sTransport.dropPoint || userData.dropPoint || '',
+      pickupTime: sTransport.pickupTime || userData.pickupTime || '',
+      dropTime: sTransport.dropTime || userData.dropTime || '',
 
       // Medical
-      medicalConditions: Array.isArray(sMedical.chronicConditions) ? sMedical.chronicConditions.join(', ') : '',
-      allergies: Array.isArray(sMedical.allergies) ? sMedical.allergies.join(', ') : '',
-      specialNeeds: '',
+      medicalConditions: Array.isArray(sMedical.chronicConditions) ? sMedical.chronicConditions.join(', ') : userData.medicalConditions || '',
+      allergies: Array.isArray(sMedical.allergies) ? sMedical.allergies.join(', ') : userData.allergies || '',
+      specialNeeds: userData.specialNeeds || '',
 
       // Teacher Information (if applicable)
       subjects: Array.isArray(userData.teacherDetails?.subjects) ?
@@ -3648,11 +3682,20 @@ const ManageUsers: React.FC = () => {
         district: formData.district,
         taluka: formData.taluka,
         city: formData.city || formData.permanentCity,
-        pinCode: formData.pinCode || formData.permanentPincode
+        pinCode: formData.pinCode || formData.permanentPincode,
+        
+        // Simple address fields (for edit form)
+        address: formData.address,
+        cityVillageTown: formData.cityVillageTown,
+        locality: formData.locality
       };
 
       // Add role-specific fields
       if (editingUser.role === 'student') {
+        // Communication Details
+        updateData.studentMobile = formData.studentMobile;
+        updateData.studentEmail = formData.studentEmail;
+
         // Academic Information
         updateData.class = formData.class;
         updateData.section = formData.section;
@@ -3664,16 +3707,61 @@ const ManageUsers: React.FC = () => {
         updateData.admissionNumber = formData.admissionNumber;
 
         // Admission Details
+        updateData.academicYear = formData.academicYear;
+        updateData.mediumOfInstruction = formData.mediumOfInstruction;
         updateData.motherTongue = formData.motherTongue;
         updateData.motherTongueOther = formData.motherTongueOther;
+        updateData.enrollmentNo = formData.enrollmentNo;
+        updateData.tcNo = formData.tcNo;
+        updateData.tcNumber = formData.tcNumber;
+
+        // Personal Details
+        updateData.placeOfBirth = formData.placeOfBirth;
+        updateData.nationality = formData.nationality;
+        updateData.studentAadhaar = formData.studentAadhaar;
+
+        // Identity Documents - Caste Certificates
+        updateData.studentCasteCertNo = formData.studentCasteCertNo;
+        updateData.fatherCasteCertNo = formData.fatherCasteCertNo;
+        updateData.motherCasteCertNo = formData.motherCasteCertNo;
+
+        // Previous School
+        updateData.previousSchool = formData.previousSchool;
+        updateData.previousSchoolName = formData.previousSchoolName;
+        updateData.previousClass = formData.previousClass;
+        updateData.migrationCertificate = formData.migrationCertificate;
+        updateData.previousBoard = formData.previousBoard;
+
+        // Banking Information
+        updateData.bankName = formData.bankName;
+        updateData.bankAccountNo = formData.bankAccountNo;
+        updateData.bankIFSC = formData.bankIFSC;
+
+        // Transportation
+        updateData.transportMode = formData.transportMode;
+        updateData.busRoute = formData.busRoute;
+        updateData.pickupPoint = formData.pickupPoint;
+        updateData.dropPoint = formData.dropPoint;
+        updateData.pickupTime = formData.pickupTime;
+        updateData.dropTime = formData.dropTime;
+
+        // Medical
+        updateData.allergies = formData.allergies;
+        updateData.specialNeeds = formData.specialNeeds;
 
         // Family Information
         updateData.fatherName = formData.fatherName;
         updateData.motherName = formData.motherName;
         updateData.fatherPhone = formData.fatherPhone;
+        updateData.fatherMobile = formData.fatherMobile;
+        updateData.fatherEmail = formData.fatherEmail;
         updateData.motherPhone = formData.motherPhone;
+        updateData.motherMobile = formData.motherMobile;
+        updateData.motherEmail = formData.motherEmail;
         updateData.fatherOccupation = formData.fatherOccupation;
         updateData.motherOccupation = formData.motherOccupation;
+        updateData.fatherAadhaar = formData.fatherAadhaar;
+        updateData.motherAadhaar = formData.motherAadhaar;
         updateData.guardianName = formData.guardianName;
         updateData.guardianRelation = formData.guardianRelation;
         updateData.fatherEducation = formData.fatherEducation;
@@ -3709,6 +3797,7 @@ const ManageUsers: React.FC = () => {
         updateData.religion = formData.religion;
         updateData.economicStatus = formData.economicStatus;
         updateData.bplCardNumber = formData.bplCardNumber;
+        updateData.bplCardNo = formData.bplCardNo;
         updateData.scholarshipDetails = formData.scholarshipDetails;
         updateData.specialNeeds = formData.specialNeeds;
         updateData.disabilityType = formData.disabilityType;
@@ -6749,19 +6838,6 @@ const ManageUsers: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                      <input
-                        type="tel"
-                        required
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                        placeholder="Enter phone number (10 digits)"
-                        pattern="[0-9]{10}"
-                        maxLength={10}
-                      />
-                    </div>
-                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label>
                       <input
                         type="date"
@@ -6931,12 +7007,12 @@ const ManageUsers: React.FC = () => {
                           <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year *</label>
                           <select
                             required
-                            // --- FIX: Default value should be the actual currentAcademicYear from context ---
-                            value={formData.studentDetails?.academicYear || currentAcademicYear}
+                            value={formData.academicYear || formData.studentDetails?.academicYear || currentAcademicYear}
                             onChange={(e) => {
                               const newYear = e.target.value;
                               setFormData({
                                 ...formData,
+                                academicYear: newYear,
                                 studentDetails: {
                                   ...formData.studentDetails,
                                   academicYear: newYear
@@ -6945,7 +7021,6 @@ const ManageUsers: React.FC = () => {
                             }}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2"
                           >
-                            {/* --- FIX: Populate options dynamically from context --- */}
                             {academicYearLoading ? (
                               <option>Loading years...</option>
                             ) : (
@@ -7582,9 +7657,9 @@ const ManageUsers: React.FC = () => {
                       <div className="mt-4">
                         <h5 className="text-md font-medium text-gray-800 mb-2">Location Details (State, District, Taluka)</h5>
                         <LocationSelector
-                          selectedState={formData.stateId}
-                          selectedDistrict={formData.districtId}
-                          selectedTaluka={formData.talukaId}
+                          selectedState={formData.stateId ? parseInt(formData.stateId) : undefined}
+                          selectedDistrict={formData.districtId ? parseInt(formData.districtId) : undefined}
+                          selectedTaluka={formData.talukaId ? parseInt(formData.talukaId) : undefined}
                           districtText={formData.districtText}
                           talukaText={formData.talukaText}
                           onStateChange={handleStateChange}
@@ -8513,19 +8588,6 @@ const ManageUsers: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                      <input
-                        type="tel"
-                        required
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                        placeholder="Enter phone number"
-                        pattern="[0-9]{10}"
-                        maxLength={10}
-                      />
-                    </div>
-                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
                       <input
                         type="date"
@@ -8630,30 +8692,6 @@ const ManageUsers: React.FC = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Age (Years)</label>
-                          <input
-                            type="number"
-                            value={formData.ageYears}
-                            onChange={(e) => setFormData({ ...formData, ageYears: parseInt(e.target.value) || 0 })}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                            placeholder="Years"
-                            min="0"
-                            max="25"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Age (Months)</label>
-                          <input
-                            type="number"
-                            value={formData.ageMonths}
-                            onChange={(e) => setFormData({ ...formData, ageMonths: parseInt(e.target.value) || 0 })}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                            placeholder="Months"
-                            min="0"
-                            max="11"
-                          />
-                        </div>
-                        <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
                           <select
                             required
@@ -8677,12 +8715,29 @@ const ManageUsers: React.FC = () => {
                           <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year *</label>
                           <select
                             required
-                            value={formData.academicYear}
-                            onChange={(e) => setFormData({ ...formData, academicYear: e.target.value })}
+                            value={formData.academicYear || formData.studentDetails?.academicYear || currentAcademicYear}
+                            onChange={(e) => {
+                              const newYear = e.target.value;
+                              setFormData({
+                                ...formData,
+                                academicYear: newYear,
+                                studentDetails: {
+                                  ...formData.studentDetails,
+                                  academicYear: newYear
+                                }
+                              });
+                            }}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2"
                           >
-                            <option value="2024-2025">2024-2025</option>
-                            <option value="2025-2026">2025-2026</option>
+                            {academicYearLoading ? (
+                              <option>Loading years...</option>
+                            ) : (
+                              availableYears.map(year => (
+                                <option key={year} value={year}>
+                                  {year} {year === currentAcademicYear && '(Current)'}
+                                </option>
+                              ))
+                            )}
                           </select>
                         </div>
                         <div>
@@ -8739,28 +8794,39 @@ const ManageUsers: React.FC = () => {
                           <label className="block text-sm font-medium text-gray-700 mb-1">Class *</label>
                           <select
                             required
-                            value={formData.class}
-                            onChange={(e) => setFormData({ ...formData, class: e.target.value })}
+                            value={formData.class || ''}
+                            onChange={(e) => {
+                              const selectedClass = e.target.value;
+                              setFormData({
+                                ...formData,
+                                class: selectedClass,
+                                section: '' // Reset section when class changes
+                              });
+                              handleClassSelection(selectedClass);
+                            }}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2"
                           >
                             <option value="">Select Class</option>
-                            <option value="LKG">LKG</option>
-                            <option value="UKG">UKG</option>
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => (
-                              <option key={num} value={num.toString()}>{num}</option>
+                            {getClassOptions().map((cls: any) => (
+                              <option key={cls.value} value={cls.value}>
+                                {cls.label}
+                              </option>
                             ))}
                           </select>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Section *</label>
                           <select
-                            value={formData.section}
+                            required
+                            value={formData.section || ''}
                             onChange={(e) => setFormData({ ...formData, section: e.target.value })}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2"
                           >
                             <option value="">Select Section</option>
-                            {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'].map(letter => (
-                              <option key={letter} value={letter}>Section {letter}</option>
+                            {getSectionsByClass(formData.class || '').map((section: any) => (
+                              <option key={section.value} value={section.value}>
+                                {section.label}
+                              </option>
                             ))}
                           </select>
                         </div>
@@ -9156,11 +9222,7 @@ const ManageUsers: React.FC = () => {
                             value={formData.bankName}
                             onChange={(e) => setFormData({
                               ...formData,
-                              bankName: e.target.value,
-                              studentDetails: {
-                                ...formData.studentDetails,
-                                financial: { ...formData.studentDetails.financial, bankDetails: { ...formData.studentDetails.financial?.bankDetails, bankName: e.target.value } }
-                              }
+                              bankName: e.target.value
                             })}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2"
                             placeholder="Enter bank name"
@@ -9174,11 +9236,7 @@ const ManageUsers: React.FC = () => {
                             value={formData.bankAccountNo}
                             onChange={(e) => setFormData({
                               ...formData,
-                              bankAccountNo: e.target.value,
-                              studentDetails: {
-                                ...formData.studentDetails,
-                                financial: { ...formData.studentDetails.financial, bankDetails: { ...formData.studentDetails.financial?.bankDetails, accountNumber: e.target.value } }
-                              }
+                              bankAccountNo: e.target.value
                             })}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2"
                             placeholder="Enter account number"
@@ -9192,17 +9250,379 @@ const ManageUsers: React.FC = () => {
                             value={formData.bankIFSC}
                             onChange={(e) => setFormData({
                               ...formData,
-                              bankIFSC: e.target.value,
-                              studentDetails: {
-                                ...formData.studentDetails,
-                                financial: { ...formData.studentDetails.financial, bankDetails: { ...formData.studentDetails.financial?.bankDetails, ifscCode: e.target.value } }
-                              }
+                              bankIFSC: e.target.value
                             })}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2"
                             placeholder="11-character IFSC code"
                             pattern="[A-Z]{4}0[A-Z0-9]{6}"
                             maxLength={11}
                           />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Enrollment and TC Details - SATS Standard */}
+                    <div className="bg-emerald-50 p-4 rounded-lg">
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4">Enrollment and TC Details</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Enrollment No *</label>
+                          <input
+                            type="text"
+                            required
+                            value={formData.enrollmentNo || ''}
+                            onChange={(e) => setFormData({ ...formData, enrollmentNo: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="Enter enrollment number"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">TC Number *</label>
+                          <input
+                            type="text"
+                            required
+                            value={formData.tcNumber || ''}
+                            onChange={(e) => setFormData({ ...formData, tcNumber: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="Enter TC number"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Admission Number</label>
+                          <input
+                            type="text"
+                            value={formData.admissionNumber || ''}
+                            onChange={(e) => setFormData({ ...formData, admissionNumber: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="Enter admission number"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Address Information - SATS Standard */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4">Address Information</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+                          <textarea
+                            required
+                            value={formData.address || ''}
+                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="Enter complete address"
+                            rows={2}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">City/Village/Town *</label>
+                          <input
+                            type="text"
+                            required
+                            value={formData.cityVillageTown || ''}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              cityVillageTown: e.target.value,
+                              city: e.target.value,
+                              addressDetails: {
+                                ...formData.addressDetails,
+                                permanent: { ...formData.addressDetails?.permanent, city: e.target.value }
+                              }
+                            })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="Enter city/village/town"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Locality</label>
+                          <input
+                            type="text"
+                            value={formData.locality || ''}
+                            onChange={(e) => setFormData({ ...formData, locality: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="Enter locality"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Pin Code *</label>
+                          <input
+                            type="text"
+                            required
+                            value={formData.pinCode || ''}
+                            onChange={(e) => setFormData({ ...formData, pinCode: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="6-digit pin code"
+                            pattern="[0-9]{6}"
+                            maxLength={6}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Communication Details - SATS Standard */}
+                    <div className="bg-cyan-50 p-4 rounded-lg">
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4">Communication Details</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Student Mobile No</label>
+                          <input
+                            type="tel"
+                            value={formData.studentMobile || ''}
+                            onChange={(e) => setFormData({ ...formData, studentMobile: e.target.value, phone: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="10-digit mobile number"
+                            pattern="[0-9]{10}"
+                            maxLength={10}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Student Email ID</label>
+                          <input
+                            type="email"
+                            value={formData.studentEmail || ''}
+                            onChange={(e) => setFormData({ ...formData, studentEmail: e.target.value, email: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="Enter email address"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Father Mobile No</label>
+                          <input
+                            type="tel"
+                            value={formData.fatherMobile || ''}
+                            onChange={(e) => setFormData({ ...formData, fatherMobile: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="10-digit mobile number"
+                            pattern="[0-9]{10}"
+                            maxLength={10}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Father Email ID</label>
+                          <input
+                            type="email"
+                            value={formData.fatherEmail || ''}
+                            onChange={(e) => setFormData({ ...formData, fatherEmail: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="Enter email address"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Mother Mobile No</label>
+                          <input
+                            type="tel"
+                            value={formData.motherMobile || ''}
+                            onChange={(e) => setFormData({ ...formData, motherMobile: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="10-digit mobile number"
+                            pattern="[0-9]{10}"
+                            maxLength={10}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Mother Email ID</label>
+                          <input
+                            type="email"
+                            value={formData.motherEmail || ''}
+                            onChange={(e) => setFormData({ ...formData, motherEmail: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            placeholder="Enter email address"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* School and Banking - SATS Standard */}
+                    <div className="bg-teal-50 p-4 rounded-lg">
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4">School and Banking</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">School Admission Date <span className="text-red-500">*</span></label>
+                          <input
+                            type="date"
+                            required
+                            value={formData.schoolAdmissionDate || ''}
+                            onChange={(e) => setFormData({ ...formData, schoolAdmissionDate: e.target.value, admissionDate: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Additional Information - Missing Fields */}
+                    <div className="bg-rose-50 p-4 rounded-lg">
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4">Additional Essential Information</h4>
+
+                      {/* Personal Details */}
+                      <div className="mb-6">
+                        <h5 className="text-md font-medium text-gray-800 mb-3">Personal Details</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Blood Group <span className="text-red-500">*</span></label>
+                            <select
+                              value={formData.bloodGroup || ''}
+                              onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                              required
+                            >
+                              <option value="">Select Blood Group</option>
+                              <option value="A+">A+</option>
+                              <option value="A-">A-</option>
+                              <option value="B+">B+</option>
+                              <option value="B-">B-</option>
+                              <option value="AB+">AB+</option>
+                              <option value="AB-">AB-</option>
+                              <option value="O+">O+</option>
+                              <option value="O-">O-</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nationality *</label>
+                            <input
+                              type="text"
+                              required
+                              value={formData.nationality || 'Indian'}
+                              onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                              placeholder="Enter nationality"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Place of Birth</label>
+                            <input
+                              type="text"
+                              value={formData.placeOfBirth || ''}
+                              onChange={(e) => setFormData({ ...formData, placeOfBirth: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                              placeholder="Enter place of birth"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Previous School Details */}
+                      <div className="mb-6">
+                        <h5 className="text-md font-medium text-gray-800 mb-3">Previous School Details</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Previous School Name</label>
+                            <input
+                              type="text"
+                              value={formData.previousSchoolName || ''}
+                              onChange={(e) => setFormData({ ...formData, previousSchoolName: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                              placeholder="Enter previous school name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Migration Certificate</label>
+                            <input
+                              type="text"
+                              value={formData.migrationCertificate || ''}
+                              onChange={(e) => setFormData({ ...formData, migrationCertificate: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                              placeholder="Enter migration certificate number"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Last Class Passed</label>
+                            <input
+                              type="text"
+                              value={formData.previousClass || ''}
+                              onChange={(e) => setFormData({ ...formData, previousClass: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                              placeholder="Enter last class passed"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Identity and Documents */}
+                      <div className="mb-6">
+                        <h5 className="text-md font-medium text-gray-800 mb-3">Identity and Documents</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Birth Certificate Number</label>
+                            <input
+                              type="text"
+                              value={formData.birthCertificateNumber || ''}
+                              onChange={(e) => setFormData({ ...formData, birthCertificateNumber: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                              placeholder="Enter birth certificate number"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* BPL/Economic Status */}
+                      <div className="mb-6">
+                        <h5 className="text-md font-medium text-gray-800 mb-3">Economic Status</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Economic Status</label>
+                            <select
+                              value={formData.economicStatus || ''}
+                              onChange={(e) => setFormData({ ...formData, economicStatus: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            >
+                              <option value="">Select Status</option>
+                              <option value="BPL">BPL (Below Poverty Line)</option>
+                              <option value="APL">APL (Above Poverty Line)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">BPL Card Number</label>
+                            <input
+                              type="text"
+                              value={formData.bplCardNo || ''}
+                              onChange={(e) => setFormData({ ...formData, bplCardNo: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                              placeholder="Enter BPL card number"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Family Income Range</label>
+                            <select
+                              value={formData.familyIncome || ''}
+                              onChange={(e) => setFormData({ ...formData, familyIncome: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                            >
+                              <option value="">Select Income Range</option>
+                              <option value="Below 1 Lakh">Below 1 Lakh</option>
+                              <option value="1-2 Lakhs">1-2 Lakhs</option>
+                              <option value="2-5 Lakhs">2-5 Lakhs</option>
+                              <option value="5-10 Lakhs">5-10 Lakhs</option>
+                              <option value="Above 10 Lakhs">Above 10 Lakhs</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Guardian Information */}
+                      <div className="mb-6">
+                        <h5 className="text-md font-medium text-gray-800 mb-3">Guardian Information</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Guardian Name</label>
+                            <input
+                              type="text"
+                              value={formData.guardianName || ''}
+                              onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                              placeholder="Enter guardian name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Guardian Relationship</label>
+                            <input
+                              type="text"
+                              value={formData.guardianRelation || ''}
+                              onChange={(e) => setFormData({ ...formData, guardianRelation: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                              placeholder="Enter relationship"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
