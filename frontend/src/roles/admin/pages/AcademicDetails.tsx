@@ -651,33 +651,44 @@ const AcademicDetails: React.FC = () => {
         })()
       });
 
-      // Helper function for robust filtering
-      const filterStudent = (student: any, targetClass: string, targetSection: string, apiName: string): boolean => {
-        // --- FIX: Check academicInfo as per schoolUsers.ts ---
+      // Helper function for robust filtering - CRITICAL FIX: Added academicYear filtering
+      const filterStudent = (student: any, targetClass: string, targetSection: string, targetAcademicYear: string, apiName: string): boolean => {
+        // CRITICAL FIX: Fetch from studentDetails.academic for all fields
         const studentClass = (
+          student.studentDetails?.academic?.currentClass ||
           student.studentDetails?.currentClass ||
           student.currentclass ||
           student.class ||
           student.className ||
-          student.academicInfo?.class || // <-- NEW
+          student.academicInfo?.class ||
           ''
         );
         const studentSection = (
+          student.studentDetails?.academic?.currentSection ||
           student.studentDetails?.currentSection ||
           student.currentsection ||
           student.section ||
-          student.academicInfo?.section || // <-- NEW
+          student.academicInfo?.section ||
+          ''
+        );
+
+        // CRITICAL FIX: Add academicYear filtering from studentDetails.academic.academicYear
+        const studentAcademicYear = (
+          student.studentDetails?.academic?.academicYear ||
+          student.studentDetails?.academicYear ||
+          student.academicYear ||
           ''
         );
 
         const classMatch = String(studentClass).trim() === String(targetClass).trim();
         const sectionMatch = String(studentSection).trim().toUpperCase() === String(targetSection).trim().toUpperCase();
+        const academicYearMatch = String(studentAcademicYear).trim() === String(targetAcademicYear).trim();
 
-        if (!classMatch || !sectionMatch) {
-          console.log(`🚫 Student ${student.name?.displayName || student.userId} filtered out (${apiName}). Class: '${studentClass}' (Req: '${targetClass}'), Section: '${studentSection}' (Req: '${targetSection}')`);
+        if (!classMatch || !sectionMatch || !academicYearMatch) {
+          console.log(`🚫 Student ${student.name?.displayName || student.userId} filtered out (${apiName}). Class: '${studentClass}' (Req: '${targetClass}'), Section: '${studentSection}' (Req: '${targetSection}'), AcademicYear: '${studentAcademicYear}' (Req: '${targetAcademicYear}')`);
         }
 
-        return classMatch && sectionMatch;
+        return classMatch && sectionMatch && academicYearMatch;
       };
 
       // --- PRIMARY ATTEMPT ---
@@ -688,14 +699,14 @@ const AcademicDetails: React.FC = () => {
 
         if (data && data.success && data.data && data.data.length > 0) {
           const filteredStudents = data.data.filter((student: any) =>
-            filterStudent(student, hallTicketClass, hallTicketSection, "Primary API")
+            filterStudent(student, hallTicketClass, hallTicketSection, academicYearToUse, "Primary API")
           );
 
           if (filteredStudents.length > 0) {
             console.log(`✅ Found ${filteredStudents.length} students via (by role) endpoint.`);
             foundStudents = filteredStudents.map(mapStudent);
           } else {
-            console.log(`⚠️ No students found for Class ${hallTicketClass} Section ${hallTicketSection} in ${data.data.length} total students from (by role) endpoint. Will try fallback.`);
+            console.log(`⚠️ No students found for Class ${hallTicketClass} Section ${hallTicketSection} AcademicYear ${academicYearToUse} in ${data.data.length} total students from (by role) endpoint. Will try fallback.`);
           }
         }
       } catch (apiError) {
@@ -714,14 +725,14 @@ const AcademicDetails: React.FC = () => {
               const isStudent = user.role === 'student';
               if (!isStudent) return false;
 
-              return filterStudent(user, hallTicketClass, hallTicketSection, "Fallback API");
+              return filterStudent(user, hallTicketClass, hallTicketSection, academicYearToUse, "Fallback API");
             });
 
             if (filteredStudents.length > 0) {
               console.log(`✅ Found ${filteredStudents.length} students via (get all) fallback endpoint.`);
               foundStudents = filteredStudents.map(mapStudent);
             } else {
-              console.log(`⚠️ Fallback (get all) endpoint also found no matching students.`);
+              console.log(`⚠️ Fallback (get all) endpoint also found no matching students for Class ${hallTicketClass} Section ${hallTicketSection} AcademicYear ${academicYearToUse}.`);
             }
           }
         } catch (altApiError) {
@@ -732,12 +743,12 @@ const AcademicDetails: React.FC = () => {
       // --- Final check ---
       if (foundStudents.length > 0) {
         setStudents(foundStudents);
-        toast.success(`Loaded ${foundStudents.length} students for Class ${hallTicketClass} Section ${hallTicketSection}`);
+        toast.success(`Loaded ${foundStudents.length} students for Class ${hallTicketClass} Section ${hallTicketSection} (${academicYearToUse})`);
         console.log('✅ Real students loaded:', foundStudents);
       } else {
-        console.log('⚠️ No students found for the selected class and section after all attempts.');
+        console.log('⚠️ No students found for the selected class, section and academic year after all attempts.');
         setStudents([]);
-        toast.error(`No students found for Class ${hallTicketClass} Section ${hallTicketSection}. Please check student data.`);
+        toast.error(`No students found for Class ${hallTicketClass} Section ${hallTicketSection} in ${academicYearToUse}. Please check student data.`);
       }
 
     } catch (error: any) {
@@ -784,33 +795,44 @@ const AcademicDetails: React.FC = () => {
         phone: student.contact?.primaryPhone || student.contact?.phone || student.phone || student.personalDetails?.phone || 'Not Available'
       });
 
-      // Helper function for robust filtering
-      const filterStudent = (student: any, targetClass: string, targetSection: string, apiName: string): boolean => {
-        // --- FIX: Check academicInfo as per schoolUsers.ts ---
+      // Helper function for robust filtering - CRITICAL FIX: Added academicYear filtering
+      const filterStudent = (student: any, targetClass: string, targetSection: string, targetAcademicYear: string, apiName: string): boolean => {
+        // CRITICAL FIX: Fetch from studentDetails.academic for all fields
         const studentClass = (
+          student.studentDetails?.academic?.currentClass ||
           student.studentDetails?.currentClass ||
           student.currentclass ||
           student.class ||
           student.className ||
-          student.academicInfo?.class || // <-- NEW
+          student.academicInfo?.class ||
           ''
         );
         const studentSection = (
+          student.studentDetails?.academic?.currentSection ||
           student.studentDetails?.currentSection ||
           student.currentsection ||
           student.section ||
-          student.academicInfo?.section || // <-- NEW
+          student.academicInfo?.section ||
+          ''
+        );
+
+        // CRITICAL FIX: Add academicYear filtering from studentDetails.academic.academicYear
+        const studentAcademicYear = (
+          student.studentDetails?.academic?.academicYear ||
+          student.studentDetails?.academicYear ||
+          student.academicYear ||
           ''
         );
 
         const classMatch = String(studentClass).trim() === String(targetClass).trim();
         const sectionMatch = String(studentSection).trim().toUpperCase() === String(targetSection).trim().toUpperCase();
+        const academicYearMatch = String(studentAcademicYear).trim() === String(targetAcademicYear).trim();
 
-        if (!classMatch || !sectionMatch) {
-          console.log(`🚫 Student ${student.name?.displayName || student.userId} filtered out (${apiName}). Class: '${studentClass}' (Req: '${targetClass}'), Section: '${studentSection}' (Req: '${targetSection}')`);
+        if (!classMatch || !sectionMatch || !academicYearMatch) {
+          console.log(`🚫 Student ${student.name?.displayName || student.userId} filtered out (${apiName}). Class: '${studentClass}' (Req: '${targetClass}'), Section: '${studentSection}' (Req: '${targetSection}'), AcademicYear: '${studentAcademicYear}' (Req: '${targetAcademicYear}')`);
         }
 
-        return classMatch && sectionMatch;
+        return classMatch && sectionMatch && academicYearMatch;
       };
 
       // --- PRIMARY ATTEMPT ---
@@ -821,14 +843,14 @@ const AcademicDetails: React.FC = () => {
 
         if (data && data.success && data.data && data.data.length > 0) {
           const filteredStudents = data.data.filter((student: any) =>
-            filterStudent(student, idCardClass, idCardSection, "Primary API")
+            filterStudent(student, idCardClass, idCardSection, academicYearToUse, "Primary API")
           );
 
           if (filteredStudents.length > 0) {
             console.log(`✅ Found ${filteredStudents.length} students via (by role) endpoint.`);
             foundStudents = filteredStudents.map(mapStudentForIdCard);
           } else {
-            console.log(`⚠️ No students found for Class ${idCardClass} Section ${idCardSection} in ${data.data.length} total students from (by role) endpoint. Will try fallback.`);
+            console.log(`⚠️ No students found for Class ${idCardClass} Section ${idCardSection} AcademicYear ${academicYearToUse} in ${data.data.length} total students from (by role) endpoint. Will try fallback.`);
           }
         }
       } catch (apiError) {
@@ -847,14 +869,14 @@ const AcademicDetails: React.FC = () => {
               const isStudent = student.role === 'student';
               if (!isStudent) return false;
 
-              return filterStudent(student, idCardClass, idCardSection, "Fallback API");
+              return filterStudent(student, idCardClass, idCardSection, academicYearToUse, "Fallback API");
             });
 
             if (filteredStudents.length > 0) {
               console.log(`✅ Found ${filteredStudents.length} students via (get all) fallback endpoint.`);
               foundStudents = filteredStudents.map(mapStudentForIdCard);
             } else {
-              console.log(`⚠️ Fallback (get all) endpoint also found no matching students.`);
+              console.log(`⚠️ Fallback (get all) endpoint also found no matching students for Class ${idCardClass} Section ${idCardSection} AcademicYear ${academicYearToUse}.`);
             }
           }
         } catch (altApiError) {
@@ -865,12 +887,12 @@ const AcademicDetails: React.FC = () => {
       // --- Final check ---
       if (foundStudents.length > 0) {
         setIdCardStudents(foundStudents);
-        toast.success(`Loaded ${foundStudents.length} students for ID card generation`);
+        toast.success(`Loaded ${foundStudents.length} students for ID card generation (${academicYearToUse})`);
         console.log('✅ ID Card students loaded:', foundStudents);
       } else {
-        console.log('⚠️ No students found for the selected class and section after all attempts.');
+        console.log('⚠️ No students found for the selected class, section and academic year after all attempts.');
         setIdCardStudents([]);
-        toast.error(`No students found for Class ${idCardClass} Section ${idCardSection}. Please add students to this class first.`);
+        toast.error(`No students found for Class ${idCardClass} Section ${idCardSection} in ${academicYearToUse}. Please add students to this class first.`);
       }
     } catch (error: any) {
       console.error('Error in fetchStudentsForIdCards:', error);
