@@ -34,7 +34,8 @@ const addSubjectToClass = async (req, res) => {
       teacherName = null
     } = req.body;
 
-    const schoolCode = req.user.schoolCode;
+    let schoolCode = req.user.schoolCode;
+    schoolCode = schoolCode.toLowerCase(); // <-- CRITICAL FIX: Store lowercase schoolCode
     const userId = req.user.userId;
 
     // Validate required fields
@@ -211,7 +212,8 @@ const addSubjectToClass = async (req, res) => {
 const removeSubjectFromClass = async (req, res) => {
   try {
     const { className, subjectName } = req.body;
-    const schoolCode = req.user.schoolCode;
+    let schoolCode = req.user.schoolCode;
+    schoolCode = schoolCode.toLowerCase(); // <-- CRITICAL FIX: Use lowercase schoolCode
     const userId = req.user.userId;
 
     // Validate required fields
