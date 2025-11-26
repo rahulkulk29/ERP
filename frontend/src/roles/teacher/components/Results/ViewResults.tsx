@@ -296,21 +296,23 @@ const ViewResults: React.FC = () => {
       console.log('🔍 Fetching subjects for class:', selectedClass, 'section:', selectedSection);
 
       try {
-        const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+        let schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
         if (!schoolCode) {
           console.error('❌ School code not available');
           toast.error('School code not available');
           return;
         }
 
-        console.log('📚 Using school code:', schoolCode);
+        // CRITICAL FIX: Convert schoolCode to UPPERCASE for consistent subject retrieval
+        schoolCode = schoolCode.toUpperCase();
+        console.log('📚 Using school code (UPPERCASE):', schoolCode);
 
         // Primary API - using api instance with proper auth
         try {
           console.log('🔄 Trying primary API: /class-subjects/classes');
           const resp = await api.get('/class-subjects/classes', {
             headers: {
-              'x-school-code': schoolCode.toUpperCase()
+              'x-school-code': schoolCode
             }
           });
 
@@ -346,7 +348,7 @@ const ViewResults: React.FC = () => {
           const resp2 = await api.get(`/direct-test/class-subjects/${selectedClass}`, {
             params: { schoolCode },
             headers: {
-              'x-school-code': schoolCode.toUpperCase()
+              'x-school-code': schoolCode
             }
           });
 

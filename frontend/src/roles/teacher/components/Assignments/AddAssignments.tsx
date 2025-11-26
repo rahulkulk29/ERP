@@ -35,7 +35,7 @@ const AddAssignments: React.FC = () => {
     if (newAssignment.class && classesData) {
       const sections = getSectionsByClass(newAssignment.class);
       setAvailableSections(sections);
-      
+
       // Don't reset section and subject here - let them be reset only when needed
     } else {
       setAvailableSections([]);
@@ -58,16 +58,23 @@ const AddAssignments: React.FC = () => {
 
       setLoadingSubjects(true);
       try {
-        const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+        let schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
         if (!schoolCode) {
           return;
         }
 
+        // CRITICAL FIX: Convert schoolCode to UPPERCASE for consistent subject retrieval
+        schoolCode = schoolCode.toUpperCase();
+
         // Primary API
         try {
-          const response = await api.get('/class-subjects/classes');
+          const response = await api.get('/class-subjects/classes', {
+            headers: {
+              'x-school-code': schoolCode
+            }
+          });
           const data = response.data;
-          const classData = data?.data?.classes?.find((c: any) => 
+          const classData = data?.data?.classes?.find((c: any) =>
             c.className === newAssignment.class && c.section === newAssignment.section
           );
           const activeSubjects = (classData?.subjects || []).filter((s: any) => s.isActive !== false);
@@ -80,7 +87,12 @@ const AddAssignments: React.FC = () => {
 
         // Fallback API
         try {
-          const response2 = await api.get(`/direct-test/class-subjects/${newAssignment.class}?schoolCode=${schoolCode}`);
+          const response2 = await api.get(`/direct-test/class-subjects/${newAssignment.class}`, {
+            params: { schoolCode },
+            headers: {
+              'x-school-code': schoolCode
+            }
+          });
           const data2 = response2.data;
           const subjectNames = (data2?.data?.subjects || []).map((s: any) => s.name).filter(Boolean);
           setAvailableSubjects(subjectNames);
@@ -96,16 +108,14 @@ const AddAssignments: React.FC = () => {
       } finally {
         setLoadingSubjects(false);
       }
-    };
-
-    fetchSubjects();
+    }; fetchSubjects();
   }, [newAssignment.class, newAssignment.section, token, user?.schoolCode]);
 
   const handleAddAssignment = async () => {
     // Validate required fields
-    if (!newAssignment.title || !newAssignment.description || !newAssignment.class || 
-        !newAssignment.section || !newAssignment.subject || !newAssignment.startDate || 
-        !newAssignment.dueDate) {
+    if (!newAssignment.title || !newAssignment.description || !newAssignment.class ||
+      !newAssignment.section || !newAssignment.subject || !newAssignment.startDate ||
+      !newAssignment.dueDate) {
       alert('Please fill in all required fields');
       return;
     }
@@ -120,7 +130,7 @@ const AddAssignments: React.FC = () => {
 
     try {
       const formDataToSend = new FormData();
-      
+
       // Add form fields
       formDataToSend.append('title', newAssignment.title);
       formDataToSend.append('subject', newAssignment.subject);
@@ -153,10 +163,10 @@ const AddAssignments: React.FC = () => {
       });
 
       const response = await assignmentAPI.createAssignmentWithFiles(formDataToSend);
-      
+
       console.log('✅ Assignment created successfully:', response);
       alert(`Assignment created successfully for ${newAssignment.class} • Section ${newAssignment.section}`);
-      
+
       // Reset form
       setNewAssignment({
         title: '',
@@ -264,11 +274,11 @@ const AddAssignments: React.FC = () => {
                   disabled={!newAssignment.section || loadingSubjects}
                 >
                   <option value="">
-                    {!newAssignment.class ? 'Select Class First' : 
-                     !newAssignment.section ? 'Select Section First' :
-                     loadingSubjects ? 'Loading subjects...' : 
-                     availableSubjects.length === 0 ? 'No subjects found' :
-                     'Select Subject'}
+                    {!newAssignment.class ? 'Select Class First' :
+                      !newAssignment.section ? 'Select Section First' :
+                        loadingSubjects ? 'Loading subjects...' :
+                          availableSubjects.length === 0 ? 'No subjects found' :
+                            'Select Subject'}
                   </option>
                   {availableSubjects.map((subject) => (
                     <option key={subject} value={subject}>{subject}</option>

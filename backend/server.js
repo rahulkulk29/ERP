@@ -59,7 +59,7 @@ io.on('connection', (socket) => {
     const normalizedSchoolCode = schoolCode.toLowerCase();
     socket.join(`school-${normalizedSchoolCode}`);
     console.log(`📚 Socket ${socket.id} joined school room: school-${normalizedSchoolCode} (original: ${schoolCode})`);
-    
+
     // Log all sockets in this room
     const room = io.sockets.adapter.rooms.get(`school-${normalizedSchoolCode}`);
     console.log(`📊 Total sockets in school-${normalizedSchoolCode}:`, room ? room.size : 0);
@@ -88,25 +88,25 @@ io.on('connection', (socket) => {
       console.log('📡 Getting school connection for:', schoolCode);
       // Get school connection and save SOS alert to database
       const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
-      
+
       if (!schoolConn) {
         throw new Error(`Failed to get database connection for school: ${schoolCode}`);
       }
-      
+
       console.log('📝 Creating SOS Alert model...');
       const SOSAlert = require('./models/SOSAlert').getModelForConnection(schoolConn);
-      
+
       // Try to fetch student details from database if class/rollNo/mobile are missing
       let finalClass = studentClass || 'N/A';
       let finalRollNo = studentRollNo || 'N/A';
       let finalMobile = 'N/A';
-      
+
       if (finalClass === 'N/A' || finalRollNo === 'N/A') {
         try {
           console.log('🔍 Fetching student details from database for:', studentId);
           const studentCollection = schoolConn.collection('students');
           const mongoose = require('mongoose');
-          
+
           // Try to convert to ObjectId if it's a valid ObjectId string
           let objectId = null;
           try {
@@ -114,44 +114,44 @@ io.on('connection', (socket) => {
           } catch (e) {
             console.log('🔍 studentId is not a valid ObjectId, will search by userId');
           }
-          
-          const studentDoc = await studentCollection.findOne({ 
+
+          const studentDoc = await studentCollection.findOne({
             $or: [
               objectId ? { _id: objectId } : null,
               { userId: studentId },
               { _id: studentId }
             ].filter(Boolean)
           });
-          
+
           if (studentDoc) {
             console.log('✅ Found student document!');
             console.log('✅ Student fields:', Object.keys(studentDoc));
             console.log('✅ studentDetails:', studentDoc.studentDetails);
-            
+
             // Extract class from various possible locations
             finalClass = studentDoc.studentDetails?.currentClass ||  // ← Primary location
-                        studentDoc.studentDetails?.class || 
-                        studentDoc.class || 
-                        studentDoc.academicInfo?.class ||
-                        finalClass;
-            
+              studentDoc.studentDetails?.class ||
+              studentDoc.class ||
+              studentDoc.academicInfo?.class ||
+              finalClass;
+
             // Extract roll number from various possible locations  
-            finalRollNo = studentDoc.studentDetails?.rollNumber || 
-                         studentDoc.studentDetails?.rollNo ||
-                         studentDoc.rollNumber || 
-                         studentDoc.rollNo ||
-                         studentDoc.userId ||
-                         finalRollNo;
-            
+            finalRollNo = studentDoc.studentDetails?.rollNumber ||
+              studentDoc.studentDetails?.rollNo ||
+              studentDoc.rollNumber ||
+              studentDoc.rollNo ||
+              studentDoc.userId ||
+              finalRollNo;
+
             // Extract mobile number from various possible locations
             finalMobile = studentDoc.contact?.primaryPhone ||
-                         studentDoc.studentDetails?.fatherPhone ||
-                         studentDoc.studentDetails?.motherPhone ||
-                         studentDoc.fatherPhone ||
-                         studentDoc.motherPhone ||
-                         studentDoc.phone ||
-                         'N/A';
-            
+              studentDoc.studentDetails?.fatherPhone ||
+              studentDoc.studentDetails?.motherPhone ||
+              studentDoc.fatherPhone ||
+              studentDoc.motherPhone ||
+              studentDoc.phone ||
+              'N/A';
+
             console.log('✅ Extracted class:', finalClass);
             console.log('✅ Extracted rollNo:', finalRollNo);
             console.log('✅ Extracted mobile:', finalMobile);
@@ -164,7 +164,7 @@ io.on('connection', (socket) => {
           console.error('❌ Error stack:', err.stack);
         }
       }
-      
+
       const sosAlertData = {
         schoolCode,
         studentId,
@@ -176,7 +176,7 @@ io.on('connection', (socket) => {
         status: 'active',
         timestamp: new Date()
       };
-      
+
       console.log('💾 Saving SOS Alert:', sosAlertData);
       const sosAlert = new SOSAlert(sosAlertData);
 
@@ -196,7 +196,7 @@ io.on('connection', (socket) => {
         status: 'active',
         timestamp: sosAlert.timestamp
       };
-      
+
       // Check how many sockets are in the room before broadcasting
       // Normalize to lowercase for consistent room names
       const normalizedSchoolCode = schoolCode.toLowerCase();
@@ -206,11 +206,11 @@ io.on('connection', (socket) => {
       if (room) {
         console.log(`📢 Socket IDs:`, Array.from(room));
       }
-      
+
       io.to(`school-${normalizedSchoolCode}`).emit('sos-alert', alertPayload);
       console.log(`✅ SOS Alert broadcasted to school-${schoolCode}`);
       console.log(`✅ Alert payload:`, JSON.stringify(alertPayload, null, 2));
-      
+
       // Send success confirmation back to student
       socket.emit('sos-success', { message: 'SOS alert sent successfully', alertId: sosAlert._id });
     } catch (error) {
@@ -221,9 +221,9 @@ io.on('connection', (socket) => {
         name: error.name,
         code: error.code
       });
-      socket.emit('sos-error', { 
+      socket.emit('sos-error', {
         message: 'Failed to process SOS alert',
-        details: error.message 
+        details: error.message
       });
     }
   });
@@ -231,11 +231,11 @@ io.on('connection', (socket) => {
   // Handle SOS acknowledgment from admin
   socket.on('acknowledge-sos', async (data) => {
     const { alertId, schoolCode, adminId, adminName } = data;
-    
+
     try {
       const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
       const SOSAlert = require('./models/SOSAlert').getModelForConnection(schoolConn);
-      
+
       await SOSAlert.findByIdAndUpdate(alertId, {
         status: 'acknowledged',
         acknowledgedBy: adminId,
@@ -396,6 +396,9 @@ app.get('/api/direct-test/class-subjects/:className', async (req, res) => {
     if (!schoolCode) { schoolCode = req.query.schoolCode; }
     if (!schoolCode) { return res.status(400).json({ success: false, message: 'School code is required.' }); }
 
+    // CRITICAL FIX: Normalize schoolCode to UPPERCASE for consistent querying
+    schoolCode = schoolCode.toUpperCase();
+
     console.log('[DIRECT TEST] Request received for class:', req.params.className, 'in school:', schoolCode);
     const className = req.params.className;
     const academicYear = req.query.academicYear || '2024-25';
@@ -432,6 +435,9 @@ app.get('/api/direct-test/assignments', async (req, res) => {
     if (req.user && req.user.schoolCode) { schoolCode = req.user.schoolCode; }
     if (!schoolCode) { schoolCode = req.query.schoolCode; }
     if (!schoolCode) { return res.status(400).json({ success: false, message: 'School code is required.' }); }
+
+    // CRITICAL FIX: Normalize schoolCode to UPPERCASE for consistent querying
+    schoolCode = schoolCode.toUpperCase();
 
     console.log('[DIRECT TEST ASSIGNMENTS] Request received for school:', schoolCode);
     const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);

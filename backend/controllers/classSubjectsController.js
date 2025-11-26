@@ -15,7 +15,7 @@ const addSubjectToClass = async (req, res) => {
       body: req.body,
       user: { userId: req.user?.userId, role: req.user?.role, schoolCode: req.user?.schoolCode }
     });
-    
+
     // Validate request user data
     if (!req.user || !req.user.schoolCode || !req.user.userId) {
       console.error('[ADD SUBJECT] Missing user data:', req.user);
@@ -24,7 +24,7 @@ const addSubjectToClass = async (req, res) => {
         message: 'User authentication error: missing user data'
       });
     }
-    
+
     const {
       className,
       grade,
@@ -35,7 +35,7 @@ const addSubjectToClass = async (req, res) => {
     } = req.body;
 
     let schoolCode = req.user.schoolCode;
-    schoolCode = schoolCode.toLowerCase(); // <-- CRITICAL FIX: Store lowercase schoolCode
+    schoolCode = schoolCode.toUpperCase(); // <-- CRITICAL FIX: Store UPPERCASE schoolCode for consistent querying
     const userId = req.user.userId;
 
     // Validate required fields
@@ -52,23 +52,23 @@ const addSubjectToClass = async (req, res) => {
       const School = require('../models/School');
       // Handle case sensitivity - the School model uses uppercase: true for code field
       const school = await School.findOne({ code: schoolCode.toUpperCase() });
-      
+
       console.log(`[ADD SUBJECT] Looking for school with code: '${schoolCode}' (uppercase: '${schoolCode.toUpperCase()}')`);
       console.log(`[ADD SUBJECT] Found school:`, school ? { _id: school._id, code: school.code, name: school.name } : 'null');
-      
+
       if (!school) {
         return res.status(400).json({
           success: false,
           message: `School not found with code: ${schoolCode}`
         });
       }
-      
+
       const schoolId = school._id;
 
       try {
         // Get the per-school mongoose connection and bind the model to it
         const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
-        
+
         if (!schoolConn) {
           console.error(`[ADD SUBJECT] Failed to get school connection for: ${schoolCode}`);
           return res.status(500).json({
@@ -76,7 +76,7 @@ const addSubjectToClass = async (req, res) => {
             message: `Failed to connect to school database: ${schoolCode}`
           });
         }
-        
+
         try {
           const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
 
@@ -90,7 +90,7 @@ const addSubjectToClass = async (req, res) => {
               academicYear: '2024-25',
               isActive: true
             });
-            
+
             console.log(`[ADD SUBJECT] Class exists:`, !!classSubjects);
 
             if (!classSubjects) {
@@ -129,12 +129,12 @@ const addSubjectToClass = async (req, res) => {
               });
 
               classSubjects.lastModifiedBy = userId;
-              
+
               try {
                 await classSubjects.save();
-                
+
                 console.log(`[ADD SUBJECT] Subject added successfully:`, { className, subjectName });
-                
+
                 res.status(200).json({
                   success: true,
                   message: `Subject "${subjectName}" added to ${className} successfully`,
@@ -213,7 +213,7 @@ const removeSubjectFromClass = async (req, res) => {
   try {
     const { className, subjectName } = req.body;
     let schoolCode = req.user.schoolCode;
-    schoolCode = schoolCode.toLowerCase(); // <-- CRITICAL FIX: Use lowercase schoolCode
+    schoolCode = schoolCode.toUpperCase(); // <-- CRITICAL FIX: Store UPPERCASE schoolCode for consistent querying
     const userId = req.user.userId;
 
     // Validate required fields
@@ -286,7 +286,7 @@ const getAllClassesWithSubjects = async (req, res) => {
       role: req.user?.role,
       schoolCode: req.user?.schoolCode
     });
-    
+
     // Validate request user data
     if (!req.user || !req.user.schoolCode) {
       console.error('[GET ALL CLASSES] Missing user data:', req.user);
@@ -295,16 +295,17 @@ const getAllClassesWithSubjects = async (req, res) => {
         message: 'User authentication error: missing school code'
       });
     }
-    
-    const schoolCode = req.user.schoolCode;
+
+    let schoolCode = req.user.schoolCode;
+    schoolCode = schoolCode.toUpperCase(); // <-- CRITICAL FIX: Store UPPERCASE schoolCode for consistent querying
     const { academicYear = '2024-25' } = req.query;
-    
+
     console.log(`[GET ALL CLASSES] Looking for classes in school: ${schoolCode}, academic year: ${academicYear}`);
-    
+
     try {
       // Get classes from the school's DB
       const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
-      
+
       if (!schoolConn) {
         console.error(`[GET ALL CLASSES] Failed to get school connection for: ${schoolCode}`);
         return res.status(500).json({
@@ -312,15 +313,15 @@ const getAllClassesWithSubjects = async (req, res) => {
           message: `Failed to connect to school database: ${schoolCode}`
         });
       }
-      
+
       try {
         const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
-        
+
         try {
           const classes = await SchoolClassSubjects.getAllClasses(schoolCode, academicYear);
-          
+
           console.log(`[GET ALL CLASSES] Found ${classes.length} classes for school: ${schoolCode}`);
-          
+
           const classesData = classes.map(classItem => ({
             classId: classItem._id,
             className: classItem.className,
@@ -390,7 +391,7 @@ const getSubjectsForClass = async (req, res) => {
         message: 'User authentication error: missing school code'
       });
     }
-    
+
     const { className } = req.params;
     const schoolCode = req.user.schoolCode;
     const { academicYear = '2024-25', section } = req.query;
@@ -438,11 +439,11 @@ const getSubjectsForClass = async (req, res) => {
     // Try school-specific database as fallback
     try {
       const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
-      
+
       if (schoolConn) {
         try {
           const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
-          
+
           const classSubjects = await SchoolClassSubjects.findOne(query);
 
           if (classSubjects) {
@@ -507,9 +508,9 @@ const getSubjectsByGradeSection = async (req, res) => {
     const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
 
     const classSubjects = await SchoolClassSubjects.findByGradeSection(
-      schoolCode, 
-      grade, 
-      section, 
+      schoolCode,
+      grade,
+      section,
       academicYear
     );
 
@@ -579,7 +580,7 @@ const updateSubjectInClass = async (req, res) => {
     }
 
     // Find the subject
-    const subject = classSubjects.subjects.find(sub => 
+    const subject = classSubjects.subjects.find(sub =>
       sub.name.toLowerCase() === subjectName.toLowerCase() && sub.isActive
     );
 
@@ -637,17 +638,17 @@ const bulkAddSubjectsToClass = async (req, res) => {
     const School = require('../models/School');
     // Handle case sensitivity - the School model uses uppercase: true for code field
     const school = await School.findOne({ code: schoolCode.toUpperCase() });
-    
+
     console.log(`[DEBUG] Looking for school with code: '${schoolCode}' (uppercase: '${schoolCode.toUpperCase()}')`);
     console.log(`[DEBUG] Found school:`, school ? { _id: school._id, code: school.code, name: school.name } : 'null');
-    
+
     if (!school) {
       return res.status(400).json({
         success: false,
         message: `School not found with code: ${schoolCode}`
       });
     }
-    
+
     const schoolId = school._id;
 
     // Validate required fields
@@ -736,14 +737,14 @@ const initializeBasicSubjects = async (req, res) => {
       body: req.body,
       user: { userId: req.user?.userId, role: req.user?.role, schoolCode: req.user?.schoolCode }
     });
-    
+
     if (!req.user || !req.user.schoolCode || !req.user.userId) {
       return res.status(401).json({
         success: false,
         message: 'User authentication error: missing user data'
       });
     }
-    
+
     const { className, grade, section = 'A' } = req.body;
     const schoolCode = req.user.schoolCode;
     const userId = req.user.userId;
@@ -759,14 +760,14 @@ const initializeBasicSubjects = async (req, res) => {
       // Get schoolId
       const School = require('../models/School');
       const school = await School.findOne({ code: schoolCode.toUpperCase() });
-      
+
       if (!school) {
         return res.status(400).json({
           success: false,
           message: `School not found with code: ${schoolCode}`
         });
       }
-      
+
       const schoolId = school._id;
       const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
       const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
@@ -796,7 +797,7 @@ const initializeBasicSubjects = async (req, res) => {
       // Basic subjects based on grade
       const gradeNum = parseInt(grade);
       let basicSubjects = [];
-      
+
       if (gradeNum >= 1 && gradeNum <= 5) {
         basicSubjects = ['English', 'Mathematics', 'Hindi', 'Science', 'Social Studies'];
       } else if (gradeNum >= 6 && gradeNum <= 10) {

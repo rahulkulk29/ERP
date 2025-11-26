@@ -294,41 +294,41 @@ const Results: React.FC = () => {
 
       setLoadingSubjects(true);
       console.log('🔍 Fetching subjects for class:', selectedClass, 'section:', selectedSection);
-      
+
       try {
-        const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+        let schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
         if (!schoolCode) {
           console.error('❌ School code not available');
           toast.error('School code not available');
           return;
         }
 
-        console.log('📚 Using school code:', schoolCode);
+        // CRITICAL FIX: Convert schoolCode to UPPERCASE for consistent subject retrieval
+        schoolCode = schoolCode.toUpperCase();
+        console.log('📚 Using school code (UPPERCASE):', schoolCode);
 
         // Primary API - using api instance with proper auth
         try {
           console.log('🔄 Trying primary API: /class-subjects/classes');
           const resp = await api.get('/class-subjects/classes', {
             headers: {
-              'x-school-code': schoolCode.toUpperCase()
+              'x-school-code': schoolCode
             }
-          });
-          
-          console.log('✅ Primary API response:', resp.data);
-          
+          }); console.log('✅ Primary API response:', resp.data);
+
           if (resp.data?.success && resp.data?.data?.classes) {
-            const classData = resp.data.data.classes.find((c: any) => 
+            const classData = resp.data.data.classes.find((c: any) =>
               c.className === selectedClass && c.section === selectedSection
             );
-            
+
             console.log('🎯 Found class data:', classData);
-            
+
             if (classData?.subjects) {
               const activeSubjects = classData.subjects.filter((s: any) => s.isActive !== false);
               const subjectNames = activeSubjects.map((s: any) => s.name || s.subjectName).filter(Boolean);
-              
+
               console.log('📝 Extracted subject names:', subjectNames);
-              
+
               setSubjects(subjectNames);
               setSelectedSubject(subjectNames[0] || '');
               setLoadingSubjects(false);
@@ -346,19 +346,19 @@ const Results: React.FC = () => {
           const resp2 = await api.get(`/direct-test/class-subjects/${selectedClass}`, {
             params: { schoolCode },
             headers: {
-              'x-school-code': schoolCode.toUpperCase()
+              'x-school-code': schoolCode
             }
           });
-          
+
           console.log('✅ Fallback API response:', resp2.data);
-          
+
           if (resp2.data?.success && resp2.data?.data?.subjects) {
             const subjectNames = resp2.data.data.subjects
               .map((s: any) => s.name || s.subjectName)
               .filter(Boolean);
-            
+
             console.log('📝 Extracted subject names from fallback:', subjectNames);
-            
+
             setSubjects(subjectNames);
             setSelectedSubject(subjectNames[0] || '');
             setLoadingSubjects(false);
@@ -411,29 +411,29 @@ const Results: React.FC = () => {
         const filtered = rawStudents.filter((s: any) => {
           // Check all possible locations for class, prioritizing academicInfo
           const sClass = s.academicInfo?.class ||
-                        s.studentDetails?.academic?.currentClass ||
-                        s.studentDetails?.currentClass || 
-                        s.studentDetails?.class ||
-                        s.currentclass || 
-                        s.class || 
-                        s.className;
+            s.studentDetails?.academic?.currentClass ||
+            s.studentDetails?.currentClass ||
+            s.studentDetails?.class ||
+            s.currentclass ||
+            s.class ||
+            s.className;
           // Check all possible locations for section, prioritizing academicInfo
           const sSection = s.academicInfo?.section ||
-                          s.studentDetails?.academic?.currentSection ||
-                          s.studentDetails?.currentSection || 
-                          s.studentDetails?.section ||
-                          s.currentsection || 
-                          s.section;
+            s.studentDetails?.academic?.currentSection ||
+            s.studentDetails?.currentSection ||
+            s.studentDetails?.section ||
+            s.currentsection ||
+            s.section;
           // Check all possible locations for academic year
-          const studentAcademicYear = s.studentDetails?.academicYear || 
-                                     s.studentDetails?.academic?.academicYear ||
-                                     s.academicYear ||
-                                     s.academicInfo?.academicYear;
+          const studentAcademicYear = s.studentDetails?.academicYear ||
+            s.studentDetails?.academic?.academicYear ||
+            s.academicYear ||
+            s.academicInfo?.academicYear;
           // If academic year is not set, don't filter it out (allow it through)
           const matchesAcademicYear = !studentAcademicYear || String(studentAcademicYear).trim() === String(viewingAcademicYear).trim();
-          return String(sClass).trim() === String(selectedClass).trim() && 
-                 String(sSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase() && 
-                 matchesAcademicYear;
+          return String(sClass).trim() === String(selectedClass).trim() &&
+            String(sSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase() &&
+            matchesAcademicYear;
         });
 
         const students = filtered.map((student: any, index: number) => ({
@@ -1313,11 +1313,11 @@ const Results: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`px-2 py-1 rounded-md text-xs font-medium ${['A1', 'A2'].includes(editingResultId === result._id ? calculateGrade(editingMarks, result.totalMarks) : result.grade) ? 'bg-green-100 text-green-800' :
-                          ['B1', 'B2'].includes(editingResultId === result._id ? calculateGrade(editingMarks, result.totalMarks) : result.grade) ? 'bg-blue-100 text-blue-800' :
-                            ['C1', 'C2'].includes(editingResultId === result._id ? calculateGrade(editingMarks, result.totalMarks) : result.grade) ? 'bg-yellow-100 text-yellow-800' :
-                              (editingResultId === result._id ? calculateGrade(editingMarks, result.totalMarks) : result.grade) === 'D' ? 'bg-orange-100 text-orange-800' :
-                                ['E1', 'E2'].includes(editingResultId === result._id ? calculateGrade(editingMarks, result.totalMarks) : result.grade) ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-600'
+                        ['B1', 'B2'].includes(editingResultId === result._id ? calculateGrade(editingMarks, result.totalMarks) : result.grade) ? 'bg-blue-100 text-blue-800' :
+                          ['C1', 'C2'].includes(editingResultId === result._id ? calculateGrade(editingMarks, result.totalMarks) : result.grade) ? 'bg-yellow-100 text-yellow-800' :
+                            (editingResultId === result._id ? calculateGrade(editingMarks, result.totalMarks) : result.grade) === 'D' ? 'bg-orange-100 text-orange-800' :
+                              ['E1', 'E2'].includes(editingResultId === result._id ? calculateGrade(editingMarks, result.totalMarks) : result.grade) ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-600'
                         }`}>
                         {editingResultId === result._id ? calculateGrade(editingMarks, result.totalMarks) : result.grade || 'N/A'}
                       </span>
@@ -1442,11 +1442,11 @@ const Results: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`px-3 py-1 rounded-md text-sm font-semibold ${student.grade && ['A1', 'A2'].includes(student.grade) ? 'bg-green-100 text-green-800' :
-                          student.grade && ['B1', 'B2'].includes(student.grade) ? 'bg-blue-100 text-blue-800' :
-                            student.grade && ['C1', 'C2'].includes(student.grade) ? 'bg-yellow-100 text-yellow-800' :
-                              student.grade === 'D' ? 'bg-orange-100 text-orange-800' :
-                                student.grade && ['E1', 'E2'].includes(student.grade) ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-600'
+                        student.grade && ['B1', 'B2'].includes(student.grade) ? 'bg-blue-100 text-blue-800' :
+                          student.grade && ['C1', 'C2'].includes(student.grade) ? 'bg-yellow-100 text-yellow-800' :
+                            student.grade === 'D' ? 'bg-orange-100 text-orange-800' :
+                              student.grade && ['E1', 'E2'].includes(student.grade) ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-600'
                         }`}>
                         {student.grade || 'N/A'}
                       </span>

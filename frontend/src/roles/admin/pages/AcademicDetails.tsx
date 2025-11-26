@@ -314,18 +314,18 @@ const AcademicDetails: React.FC = () => {
     }
 
     try {
-      // Get the school code from localStorage or auth context and convert to lowercase
+      // Get the school code from localStorage or auth context and convert to UPPERCASE
       let schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
-      schoolCode = schoolCode.toLowerCase(); // <-- CRITICAL FIX: Use lowercase schoolCode
+      schoolCode = schoolCode.toUpperCase(); // <-- CRITICAL FIX: Use UPPERCASE schoolCode for consistent storage
 
-      console.log('Adding subject with school code (lowercase):', schoolCode, 'class:', selectedClass, 'section:', selectedSection);
+      console.log('Adding subject with school code (UPPERCASE):', schoolCode, 'class:', selectedClass, 'section:', selectedSection);
 
       const response = await api.post('/class-subjects/add-subject', {
         className: selectedClass,
         grade: selectedClass,
         section: selectedSection,
         subjectName: newSubjectName.trim(),
-        schoolCode: schoolCode // <-- Pass lowercase schoolCode
+        schoolCode: schoolCode // <-- Pass UPPERCASE schoolCode
       });
 
       const data = response.data;
@@ -482,11 +482,15 @@ const AcademicDetails: React.FC = () => {
 
     setLoadingSubjects(true);
     try {
-      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+      const schoolCode = (localStorage.getItem('erp.schoolCode') || user?.schoolCode || '').toUpperCase();
 
       // Fetch actual subjects from the class-subjects API
       try {
-        const response = await api.get('/class-subjects/classes');
+        const response = await api.get('/class-subjects/classes', {
+          headers: {
+            'x-school-code': schoolCode
+          }
+        });
         const responseData = response.data;
         console.log('📥 Class-subjects API response:', responseData);
 
@@ -546,7 +550,12 @@ const AcademicDetails: React.FC = () => {
       // Fallback to direct endpoint if primary API didn't return data
       try {
         console.log('🔄 Trying fallback endpoint for subjects...');
-        const response = await api.get(`/direct-test/class-subjects/${hallTicketClass}?schoolCode=${schoolCode}`);
+        const response = await api.get(`/direct-test/class-subjects/${hallTicketClass}`, {
+          params: { schoolCode },
+          headers: {
+            'x-school-code': schoolCode
+          }
+        });
         const data = response.data;
         console.log('📥 Fallback API response:', data);
 

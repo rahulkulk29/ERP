@@ -83,7 +83,7 @@ const Assignments: React.FC = () => {
       setLoading(true);
       setError('');
       console.log('🔍 Fetching assignments for academic year:', viewingAcademicYear);
-      
+
       let data;
       try {
         // Try the regular endpoint first with academic year parameter
@@ -96,10 +96,10 @@ const Assignments: React.FC = () => {
         console.log('✅ Assignments fetched from regular endpoint:', data);
       } catch (regularError) {
         console.error('❌ Error with regular endpoint:', regularError);
-        
+
         // If the regular endpoint fails, try the direct endpoint
         console.log('🔍 Trying direct test endpoint...');
-        
+
         // Get the user's school code from the auth context
         let userSchoolCode = '';
         try {
@@ -112,7 +112,7 @@ const Assignments: React.FC = () => {
         } catch (err) {
           console.error('Error parsing auth data:', err);
         }
-        
+
         // Try direct endpoint with the user's school code and academic year
         const params = new URLSearchParams({
           schoolCode: userSchoolCode,
@@ -122,23 +122,23 @@ const Assignments: React.FC = () => {
         data = response.data;
         console.log('✅ Assignments fetched from direct endpoint:', data);
       }
-      
+
       // Extract assignments array from response object
       const assignmentsArray = data.assignments || data || [];
-      
+
       // Validate each assignment has required fields and filter out incomplete ones
       const validAssignments = assignmentsArray.filter((assignment: any) => {
         // Must be an object
         if (!assignment || typeof assignment !== 'object') return false;
-        
+
         // Must have at least a title, class, and subject (not just default values)
         const hasTitle = assignment.title && assignment.title.trim() !== '';
         const hasClass = assignment.class && assignment.class.trim() !== '';
         const hasSubject = assignment.subject && assignment.subject.trim() !== '';
-        
+
         return hasTitle && hasClass && hasSubject;
       });
-      
+
       console.log(`✅ Processed ${validAssignments.length} valid assignments (filtered out ${assignmentsArray.length - validAssignments.length} incomplete)`);
       setAssignments(validAssignments);
     } catch (err: any) {
@@ -190,12 +190,12 @@ const Assignments: React.FC = () => {
 
     assignments.forEach(assignment => {
       const dueDate = new Date(assignment.dueDate);
-      
+
       // Count by status
       if (assignment.status === 'active') calculatedStats.active++;
       if (assignment.status === 'completed') calculatedStats.completed++;
       if (assignment.status === 'overdue') calculatedStats.overdue++;
-      
+
       // Count due this week
       if (dueDate >= now && dueDate <= weekFromNow) {
         calculatedStats.dueThisWeek++;
@@ -214,40 +214,40 @@ const Assignments: React.FC = () => {
 
     try {
       console.log(`🔍 Fetching subjects for class: ${className}, section: ${selectedSection}, academic year: ${viewingAcademicYear}`);
-      
-      const schoolCode = localStorage.getItem('erp.schoolCode') || '';
+
+      let schoolCode = localStorage.getItem('erp.schoolCode') || '';
       if (!schoolCode) {
         console.error('❌ School code not available');
         setSubjects([]);
         return;
       }
 
-      console.log('📚 Using school code:', schoolCode);
+      // CRITICAL FIX: Convert schoolCode to UPPERCASE for consistent subject retrieval
+      schoolCode = schoolCode.toUpperCase();
+      console.log('📚 Using school code (UPPERCASE):', schoolCode);
 
       // Primary API - using /class-subjects/classes to get all classes
       try {
         console.log('🔄 Trying primary API: /class-subjects/classes');
         const resp = await api.get('/class-subjects/classes', {
           headers: {
-            'x-school-code': schoolCode.toUpperCase()
+            'x-school-code': schoolCode
           }
-        });
-        
-        console.log('✅ Primary API response:', resp.data);
-        
+        }); console.log('✅ Primary API response:', resp.data);
+
         if (resp.data?.success && resp.data?.data?.classes) {
-          const classData = resp.data.data.classes.find((c: any) => 
+          const classData = resp.data.data.classes.find((c: any) =>
             c.className === className && c.section === selectedSection
           );
-          
+
           console.log('🎯 Found class data:', classData);
-          
+
           if (classData?.subjects) {
             const activeSubjects = classData.subjects.filter((s: any) => s.isActive !== false);
             const subjectNames = activeSubjects.map((s: any) => s.name || s.subjectName).filter(Boolean);
-            
+
             console.log('📝 Extracted subject names:', subjectNames);
-            
+
             setSubjects(subjectNames);
             setSelectedSubject(subjectNames[0] || '');
             return;
@@ -264,19 +264,19 @@ const Assignments: React.FC = () => {
         const resp2 = await api.get(`/direct-test/class-subjects/${className}`, {
           params: { schoolCode },
           headers: {
-            'x-school-code': schoolCode.toUpperCase()
+            'x-school-code': schoolCode
           }
         });
-        
+
         console.log('✅ Fallback API response:', resp2.data);
-        
+
         if (resp2.data?.success && resp2.data?.data?.subjects) {
           const subjectNames = resp2.data.data.subjects
             .map((s: any) => s.name || s.subjectName)
             .filter(Boolean);
-          
+
           console.log('📝 Extracted subject names from fallback:', subjectNames);
-          
+
           setSubjects(subjectNames);
           setSelectedSubject(subjectNames[0] || '');
           return;
@@ -325,12 +325,12 @@ const Assignments: React.FC = () => {
     try {
       console.log('🗑️ Deleting assignment:', assignmentId);
       await assignmentAPI.deleteAssignment(assignmentId);
-      
+
       console.log('✅ Assignment deleted successfully');
-      
+
       // Show success message
       alert('Assignment deleted successfully!');
-      
+
       // Refresh the assignments list
       fetchAssignments();
     } catch (error: any) {
@@ -363,16 +363,16 @@ const Assignments: React.FC = () => {
     const subject = assignment?.subject || '';
     const status = assignment?.status || '';
     const assignmentClass = assignment?.class || '';
-    
+
     const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       subject.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = selectedFilter === 'all' || status === selectedFilter;
     const matchesClass = !selectedClass || assignmentClass === selectedClass;
     const matchesSubject = !selectedSubject || subject === selectedSubject;
     const matchesAcademicYear = !viewingAcademicYear || assignment.academicYear === viewingAcademicYear;
-    
+
     // Note: Section filtering would require section data in assignment model
-    
+
     return matchesSearch && matchesFilter && matchesClass && matchesSubject && matchesAcademicYear;
   });
 
@@ -547,14 +547,14 @@ const Assignments: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleEditAssignment(assignment._id)}
                           className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
                           title="Edit assignment"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDeleteAssignment(assignment._id, assignment.title)}
                           className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
                           title="Delete assignment"

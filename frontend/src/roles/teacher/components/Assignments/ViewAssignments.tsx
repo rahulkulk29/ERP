@@ -71,15 +71,15 @@ const ViewAssignments: React.FC = () => {
     try {
       setLoading(true);
       console.log('🔍 Fetching assignments...');
-      
+
       let data;
       let assignmentsArray = [];
-      
+
       try {
         // Try the regular endpoint first
         const response = await api.get('/assignments');
         data = response.data;
-        
+
         // Handle different response structures
         if (data.data && Array.isArray(data.data)) {
           assignmentsArray = data.data;
@@ -88,24 +88,24 @@ const ViewAssignments: React.FC = () => {
         } else if (Array.isArray(data)) {
           assignmentsArray = data;
         }
-        
+
         console.log('✅ Extracted assignments array:', assignmentsArray);
       } catch (regularError) {
         console.error('❌ Error with regular endpoint:', regularError);
-        
+
         // If the regular endpoint fails, try the direct endpoint
         const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
         console.log('🔍 Trying direct endpoint with schoolCode:', schoolCode);
-        
+
         const response = await api.get(`/direct-test/assignments?schoolCode=${schoolCode}`);
         data = response.data;
-        
+
         if (data && data.success) {
           throw new Error(`Direct endpoint failed with status: ${response.status}`);
         }
-        
+
         console.log('✅ Direct endpoint response:', data);
-        
+
         // Handle different response structures
         if (data.data && Array.isArray(data.data)) {
           assignmentsArray = data.data;
@@ -115,9 +115,9 @@ const ViewAssignments: React.FC = () => {
           assignmentsArray = data;
         }
       }
-      
+
       console.log(`📊 Total assignments before filtering: ${assignmentsArray.length}`);
-      
+
       // Validate each assignment has required fields and filter by academic year
       const validAssignments = assignmentsArray.filter((assignment: any) => {
         if (!assignment || typeof assignment !== 'object') {
@@ -127,7 +127,7 @@ const ViewAssignments: React.FC = () => {
         const hasTitle = assignment.title && assignment.title.trim() !== '';
         const hasClass = assignment.class && assignment.class.trim() !== '';
         const hasSubject = assignment.subject && assignment.subject.trim() !== '';
-        
+
         if (!hasTitle || !hasClass || !hasSubject) {
           console.log('❌ Invalid assignment (missing fields):', {
             title: assignment.title,
@@ -136,11 +136,11 @@ const ViewAssignments: React.FC = () => {
           });
           return false;
         }
-        
+
         // Filter by current academic year
         const assignmentAY = assignment.academicYear;
         const matchesAcademicYear = !currentAcademicYear || !assignmentAY || assignmentAY === currentAcademicYear;
-        
+
         if (!matchesAcademicYear) {
           console.log('⏭️ Skipping assignment from different academic year:', {
             title: assignment.title,
@@ -148,10 +148,10 @@ const ViewAssignments: React.FC = () => {
             currentAcademicYear
           });
         }
-        
+
         return matchesAcademicYear;
       });
-      
+
       console.log(`✅ Loaded ${validAssignments.length} valid assignments out of ${assignmentsArray.length} total`);
       console.log('📋 Valid assignments:', validAssignments);
       setAssignments(validAssignments);
@@ -166,13 +166,18 @@ const ViewAssignments: React.FC = () => {
 
   const fetchSubjectsForClassSection = async () => {
     try {
-      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
-      
-      const resp = await api.get('/class-subjects/classes');
-      const data = resp.data;
-      
-      if (data && data.success) {
-        const classData = data?.data?.classes?.find((c: any) => 
+      let schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+
+      // CRITICAL FIX: Convert schoolCode to UPPERCASE for consistent subject retrieval
+      schoolCode = schoolCode.toUpperCase();
+
+      const resp = await api.get('/class-subjects/classes', {
+        headers: {
+          'x-school-code': schoolCode
+        }
+      });
+      const data = resp.data; if (data && data.success) {
+        const classData = data?.data?.classes?.find((c: any) =>
           c.className === selectedClass && c.section === selectedSection
         );
         const activeSubjects = (classData?.subjects || []).filter((s: any) => s.isActive !== false);
@@ -189,7 +194,7 @@ const ViewAssignments: React.FC = () => {
     let filtered = [...assignments];
 
     if (searchTerm) {
-      filtered = filtered.filter(a => 
+      filtered = filtered.filter(a =>
         a.title.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
@@ -219,7 +224,7 @@ const ViewAssignments: React.FC = () => {
 
     try {
       const formDataToSend = new FormData();
-      
+
       formDataToSend.append('title', updatedData.title);
       formDataToSend.append('subject', updatedData.subject);
       formDataToSend.append('class', updatedData.class);
@@ -234,7 +239,7 @@ const ViewAssignments: React.FC = () => {
       }
 
       await assignmentAPI.updateAssignment(editingAssignment._id, formDataToSend);
-      
+
       alert('Assignment updated successfully');
       setShowEditModal(false);
       setEditingAssignment(null);
@@ -430,7 +435,7 @@ interface EditAssignmentModalProps {
 const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ assignment, onClose, onUpdate }) => {
   const { user } = useAuth();
   const { classesData, getSectionsByClass } = useSchoolClasses();
-  
+
   const [formData, setFormData] = useState({
     title: assignment.title || '',
     description: assignment.instructions || assignment.description || '',
@@ -469,12 +474,12 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ assignment, o
       setLoadingSubjects(true);
       try {
         const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
-        
+
         const resp = await api.get('/class-subjects/classes');
         const data = resp.data;
-        
+
         if (data && data.success) {
-          const classData = data?.data?.classes?.find((c: any) => 
+          const classData = data?.data?.classes?.find((c: any) =>
             c.className === formData.class && c.section === formData.section
           );
           const activeSubjects = (classData?.subjects || []).filter((s: any) => s.isActive !== false);
@@ -494,9 +499,9 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ assignment, o
 
   const handleSubmit = async () => {
     // Validate required fields
-    if (!formData.title || !formData.description || !formData.class || 
-        !formData.section || !formData.subject || !formData.startDate || 
-        !formData.dueDate) {
+    if (!formData.title || !formData.description || !formData.class ||
+      !formData.section || !formData.subject || !formData.startDate ||
+      !formData.dueDate) {
       alert('Please fill in all required fields');
       return;
     }
@@ -581,10 +586,10 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ assignment, o
                 disabled={!formData.section || loadingSubjects}
               >
                 <option value="">
-                  {!formData.class ? 'Select Class First' : 
-                   !formData.section ? 'Select Section First' :
-                   loadingSubjects ? 'Loading subjects...' : 
-                   'Select Subject'}
+                  {!formData.class ? 'Select Class First' :
+                    !formData.section ? 'Select Section First' :
+                      loadingSubjects ? 'Loading subjects...' :
+                        'Select Subject'}
                 </option>
                 {availableSubjects.map((subject) => (
                   <option key={subject} value={subject}>{subject}</option>
