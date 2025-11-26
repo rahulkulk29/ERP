@@ -226,7 +226,7 @@ const AcademicDetails: React.FC = () => {
 
       const response = await api.get('/class-subjects/classes');
       const data = response.data;
-      
+
       if (data && data.data && data.data.classes) {
         setClassSubjects(data.data.classes || []);
       } else {
@@ -263,7 +263,7 @@ const AcademicDetails: React.FC = () => {
           try {
             const response = await api.get(`/direct-test/class-subjects/${className}?schoolCode=${schoolCode}`);
             const data = response.data;
-            
+
             if (data && data.data) {
               return data.data;
             } else {
@@ -314,16 +314,18 @@ const AcademicDetails: React.FC = () => {
     }
 
     try {
-      // Get the school code from localStorage or auth context
-      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+      // Get the school code from localStorage or auth context and convert to lowercase
+      let schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+      schoolCode = schoolCode.toLowerCase(); // <-- CRITICAL FIX: Use lowercase schoolCode
 
-      console.log('Adding subject with school code:', schoolCode, 'class:', selectedClass, 'section:', selectedSection);
+      console.log('Adding subject with school code (lowercase):', schoolCode, 'class:', selectedClass, 'section:', selectedSection);
 
       const response = await api.post('/class-subjects/add-subject', {
         className: selectedClass,
         grade: selectedClass,
         section: selectedSection,
-        subjectName: newSubjectName.trim()
+        subjectName: newSubjectName.trim(),
+        schoolCode: schoolCode // <-- Pass lowercase schoolCode
       });
 
       const data = response.data;
@@ -340,7 +342,7 @@ const AcademicDetails: React.FC = () => {
   const removeSubject = async (className: string, section: string, subjectName: string) => {
     try {
       const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
-      
+
       const response = await api.delete('/class-subjects/remove-subject', {
         data: {
           className,
@@ -487,14 +489,14 @@ const AcademicDetails: React.FC = () => {
         const response = await api.get('/class-subjects/classes');
         const responseData = response.data;
         console.log('📥 Class-subjects API response:', responseData);
-        
+
         if (responseData && responseData.data) {
-          
+
           // Find the class data for the selected class and section
-          const classData = responseData?.data?.classes?.find((c: any) => 
+          const classData = responseData?.data?.classes?.find((c: any) =>
             c.className === hallTicketClass && c.section === hallTicketSection
           );
-          
+
           if (classData && classData.subjects) {
             // Filter only active subjects
             const activeSubjects = classData.subjects.filter((subject: any) => subject.isActive !== false);
@@ -540,16 +542,16 @@ const AcademicDetails: React.FC = () => {
       } catch (apiError) {
         console.log('🔄 Primary API failed, using fallback method...', apiError);
       }
-      
+
       // Fallback to direct endpoint if primary API didn't return data
       try {
         console.log('🔄 Trying fallback endpoint for subjects...');
         const response = await api.get(`/direct-test/class-subjects/${hallTicketClass}?schoolCode=${schoolCode}`);
         const data = response.data;
         console.log('📥 Fallback API response:', data);
-        
+
         if (data && data.data) {
-          
+
           if (data.data && data.data.subjects && data.data.subjects.length > 0) {
             const subjectExamsList: SubjectExam[] = data.data.subjects.map((subject: any, index: number) => ({
               id: `${hallTicketClass}-${hallTicketSection}-${subject.name}-${selectedTest}`,
@@ -590,7 +592,7 @@ const AcademicDetails: React.FC = () => {
       } catch (fallbackError) {
         console.error('❌ Fallback API also failed:', fallbackError);
       }
-      
+
       // If we reach here, both APIs failed
       console.log('❌ No subjects found for class-section combination');
       toast.error(`No subjects configured for Class ${hallTicketClass} Section ${hallTicketSection}. Please add subjects first in the "Class Subjects Management" tab.`);
@@ -613,7 +615,8 @@ const AcademicDetails: React.FC = () => {
     }
 
     try {
-      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+      let schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+      schoolCode = schoolCode.toLowerCase(); // <-- CRITICAL FIX: Use lowercase schoolCode
       const authToken = token || localStorage.getItem('erp.authToken');
 
       if (!schoolCode || !authToken) {
@@ -622,8 +625,10 @@ const AcademicDetails: React.FC = () => {
         return;
       }
 
-      console.log(`📡 Fetching students for Hall Tickets - Class ${hallTicketClass} Section ${hallTicketSection}`);
-      
+      // CRITICAL FIX 2: Use the selected academic year for filtering students
+      const academicYearToUse = viewingAcademicYear || currentAcademicYear || '2024-25';
+      console.log(`📡 Fetching students for Hall Tickets - Class ${hallTicketClass} Section ${hallTicketSection}, Academic Year: ${academicYearToUse}`);
+
       let foundStudents: Student[] = [];
 
       // Helper function to map student data
@@ -646,33 +651,44 @@ const AcademicDetails: React.FC = () => {
         })()
       });
 
-      // Helper function for robust filtering
-      const filterStudent = (student: any, targetClass: string, targetSection: string, apiName: string): boolean => {
-        // --- FIX: Check academicInfo as per schoolUsers.ts ---
+      // Helper function for robust filtering - CRITICAL FIX: Added academicYear filtering
+      const filterStudent = (student: any, targetClass: string, targetSection: string, targetAcademicYear: string, apiName: string): boolean => {
+        // CRITICAL FIX: Fetch from studentDetails.academic for all fields
         const studentClass = (
-          student.studentDetails?.currentClass || 
-          student.currentclass || 
-          student.class || 
-          student.className || 
-          student.academicInfo?.class || // <-- NEW
+          student.studentDetails?.academic?.currentClass ||
+          student.studentDetails?.currentClass ||
+          student.currentclass ||
+          student.class ||
+          student.className ||
+          student.academicInfo?.class ||
           ''
         );
         const studentSection = (
-          student.studentDetails?.currentSection || 
-          student.currentsection || 
-          student.section || 
-          student.academicInfo?.section || // <-- NEW
+          student.studentDetails?.academic?.currentSection ||
+          student.studentDetails?.currentSection ||
+          student.currentsection ||
+          student.section ||
+          student.academicInfo?.section ||
           ''
         );
-        
+
+        // CRITICAL FIX: Add academicYear filtering from studentDetails.academic.academicYear
+        const studentAcademicYear = (
+          student.studentDetails?.academic?.academicYear ||
+          student.studentDetails?.academicYear ||
+          student.academicYear ||
+          ''
+        );
+
         const classMatch = String(studentClass).trim() === String(targetClass).trim();
         const sectionMatch = String(studentSection).trim().toUpperCase() === String(targetSection).trim().toUpperCase();
+        const academicYearMatch = String(studentAcademicYear).trim() === String(targetAcademicYear).trim();
 
-        if (!classMatch || !sectionMatch) {
-          console.log(`🚫 Student ${student.name?.displayName || student.userId} filtered out (${apiName}). Class: '${studentClass}' (Req: '${targetClass}'), Section: '${studentSection}' (Req: '${targetSection}')`);
+        if (!classMatch || !sectionMatch || !academicYearMatch) {
+          console.log(`🚫 Student ${student.name?.displayName || student.userId} filtered out (${apiName}). Class: '${studentClass}' (Req: '${targetClass}'), Section: '${studentSection}' (Req: '${targetSection}'), AcademicYear: '${studentAcademicYear}' (Req: '${targetAcademicYear}')`);
         }
 
-        return classMatch && sectionMatch;
+        return classMatch && sectionMatch && academicYearMatch;
       };
 
       // --- PRIMARY ATTEMPT ---
@@ -682,15 +698,15 @@ const AcademicDetails: React.FC = () => {
         const data = response.data;
 
         if (data && data.success && data.data && data.data.length > 0) {
-          const filteredStudents = data.data.filter((student: any) => 
-            filterStudent(student, hallTicketClass, hallTicketSection, "Primary API")
+          const filteredStudents = data.data.filter((student: any) =>
+            filterStudent(student, hallTicketClass, hallTicketSection, academicYearToUse, "Primary API")
           );
 
           if (filteredStudents.length > 0) {
             console.log(`✅ Found ${filteredStudents.length} students via (by role) endpoint.`);
             foundStudents = filteredStudents.map(mapStudent);
           } else {
-            console.log(`⚠️ No students found for Class ${hallTicketClass} Section ${hallTicketSection} in ${data.data.length} total students from (by role) endpoint. Will try fallback.`);
+            console.log(`⚠️ No students found for Class ${hallTicketClass} Section ${hallTicketSection} AcademicYear ${academicYearToUse} in ${data.data.length} total students from (by role) endpoint. Will try fallback.`);
           }
         }
       } catch (apiError) {
@@ -708,33 +724,33 @@ const AcademicDetails: React.FC = () => {
             const filteredStudents = altData.data.filter((user: any) => {
               const isStudent = user.role === 'student';
               if (!isStudent) return false;
-              
-              return filterStudent(user, hallTicketClass, hallTicketSection, "Fallback API");
+
+              return filterStudent(user, hallTicketClass, hallTicketSection, academicYearToUse, "Fallback API");
             });
 
             if (filteredStudents.length > 0) {
               console.log(`✅ Found ${filteredStudents.length} students via (get all) fallback endpoint.`);
               foundStudents = filteredStudents.map(mapStudent);
             } else {
-              console.log(`⚠️ Fallback (get all) endpoint also found no matching students.`);
+              console.log(`⚠️ Fallback (get all) endpoint also found no matching students for Class ${hallTicketClass} Section ${hallTicketSection} AcademicYear ${academicYearToUse}.`);
             }
           }
         } catch (altApiError) {
           console.log('❌ School-users (get all) API also failed:', altApiError);
         }
       }
-      
+
       // --- Final check ---
       if (foundStudents.length > 0) {
         setStudents(foundStudents);
-        toast.success(`Loaded ${foundStudents.length} students for Class ${hallTicketClass} Section ${hallTicketSection}`);
+        toast.success(`Loaded ${foundStudents.length} students for Class ${hallTicketClass} Section ${hallTicketSection} (${academicYearToUse})`);
         console.log('✅ Real students loaded:', foundStudents);
       } else {
-        console.log('⚠️ No students found for the selected class and section after all attempts.');
+        console.log('⚠️ No students found for the selected class, section and academic year after all attempts.');
         setStudents([]);
-        toast.error(`No students found for Class ${hallTicketClass} Section ${hallTicketSection}. Please check student data.`);
+        toast.error(`No students found for Class ${hallTicketClass} Section ${hallTicketSection} in ${academicYearToUse}. Please check student data.`);
       }
-      
+
     } catch (error: any) {
       console.error('Error in fetchStudentsForClass:', error);
       setStudents([]);
@@ -747,17 +763,20 @@ const AcademicDetails: React.FC = () => {
   // Fetch students for ID card generation
   const fetchStudentsForIdCards = async () => {
     try {
-      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+      let schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+      schoolCode = schoolCode.toLowerCase(); // <-- CRITICAL FIX: Use lowercase schoolCode
 
       if (!schoolCode || !token) {
         toast.error('Authentication error. Please login again.');
         return;
       }
 
-      console.log(`📡 Fetching students for ID Cards - Class ${idCardClass} Section ${idCardSection}`);
-      
+      // CRITICAL FIX 2: Use the selected academic year for filtering students
+      const academicYearToUse = viewingAcademicYear || currentAcademicYear || '2024-25';
+      console.log(`📡 Fetching students for ID Cards - Class ${idCardClass} Section ${idCardSection}, Academic Year: ${academicYearToUse}`);
+
       let foundStudents: Student[] = [];
-      
+
       // Helper function to map student data for ID Cards
       const mapStudentForIdCard = (student: any, index: number): Student => ({
         _id: student._id || student.id,
@@ -775,34 +794,45 @@ const AcademicDetails: React.FC = () => {
         address: student.address?.permanent?.street || student.address?.street || student.personalDetails?.address || student.address || 'Not Available',
         phone: student.contact?.primaryPhone || student.contact?.phone || student.phone || student.personalDetails?.phone || 'Not Available'
       });
-      
-      // Helper function for robust filtering
-      const filterStudent = (student: any, targetClass: string, targetSection: string, apiName: string): boolean => {
-        // --- FIX: Check academicInfo as per schoolUsers.ts ---
+
+      // Helper function for robust filtering - CRITICAL FIX: Added academicYear filtering
+      const filterStudent = (student: any, targetClass: string, targetSection: string, targetAcademicYear: string, apiName: string): boolean => {
+        // CRITICAL FIX: Fetch from studentDetails.academic for all fields
         const studentClass = (
-          student.studentDetails?.currentClass || 
-          student.currentclass || 
-          student.class || 
-          student.className || 
-          student.academicInfo?.class || // <-- NEW
+          student.studentDetails?.academic?.currentClass ||
+          student.studentDetails?.currentClass ||
+          student.currentclass ||
+          student.class ||
+          student.className ||
+          student.academicInfo?.class ||
           ''
         );
         const studentSection = (
-          student.studentDetails?.currentSection || 
-          student.currentsection || 
-          student.section || 
-          student.academicInfo?.section || // <-- NEW
+          student.studentDetails?.academic?.currentSection ||
+          student.studentDetails?.currentSection ||
+          student.currentsection ||
+          student.section ||
+          student.academicInfo?.section ||
           ''
         );
-        
+
+        // CRITICAL FIX: Add academicYear filtering from studentDetails.academic.academicYear
+        const studentAcademicYear = (
+          student.studentDetails?.academic?.academicYear ||
+          student.studentDetails?.academicYear ||
+          student.academicYear ||
+          ''
+        );
+
         const classMatch = String(studentClass).trim() === String(targetClass).trim();
         const sectionMatch = String(studentSection).trim().toUpperCase() === String(targetSection).trim().toUpperCase();
+        const academicYearMatch = String(studentAcademicYear).trim() === String(targetAcademicYear).trim();
 
-        if (!classMatch || !sectionMatch) {
-          console.log(`🚫 Student ${student.name?.displayName || student.userId} filtered out (${apiName}). Class: '${studentClass}' (Req: '${targetClass}'), Section: '${studentSection}' (Req: '${targetSection}')`);
+        if (!classMatch || !sectionMatch || !academicYearMatch) {
+          console.log(`🚫 Student ${student.name?.displayName || student.userId} filtered out (${apiName}). Class: '${studentClass}' (Req: '${targetClass}'), Section: '${studentSection}' (Req: '${targetSection}'), AcademicYear: '${studentAcademicYear}' (Req: '${targetAcademicYear}')`);
         }
 
-        return classMatch && sectionMatch;
+        return classMatch && sectionMatch && academicYearMatch;
       };
 
       // --- PRIMARY ATTEMPT ---
@@ -810,17 +840,17 @@ const AcademicDetails: React.FC = () => {
         console.log(`🔄 Trying school-users (by role) endpoint first for ID Cards...`);
         const response = await api.get(`/school-users/${schoolCode}/users/role/student`);
         const data = response.data;
-        
+
         if (data && data.success && data.data && data.data.length > 0) {
-          const filteredStudents = data.data.filter((student: any) => 
-            filterStudent(student, idCardClass, idCardSection, "Primary API")
+          const filteredStudents = data.data.filter((student: any) =>
+            filterStudent(student, idCardClass, idCardSection, academicYearToUse, "Primary API")
           );
 
           if (filteredStudents.length > 0) {
             console.log(`✅ Found ${filteredStudents.length} students via (by role) endpoint.`);
             foundStudents = filteredStudents.map(mapStudentForIdCard);
           } else {
-            console.log(`⚠️ No students found for Class ${idCardClass} Section ${idCardSection} in ${data.data.length} total students from (by role) endpoint. Will try fallback.`);
+            console.log(`⚠️ No students found for Class ${idCardClass} Section ${idCardSection} AcademicYear ${academicYearToUse} in ${data.data.length} total students from (by role) endpoint. Will try fallback.`);
           }
         }
       } catch (apiError) {
@@ -838,15 +868,15 @@ const AcademicDetails: React.FC = () => {
             const filteredStudents = altData.data.filter((student: any) => {
               const isStudent = student.role === 'student';
               if (!isStudent) return false;
-              
-              return filterStudent(student, idCardClass, idCardSection, "Fallback API");
+
+              return filterStudent(student, idCardClass, idCardSection, academicYearToUse, "Fallback API");
             });
 
             if (filteredStudents.length > 0) {
               console.log(`✅ Found ${filteredStudents.length} students via (get all) fallback endpoint.`);
               foundStudents = filteredStudents.map(mapStudentForIdCard);
             } else {
-               console.log(`⚠️ Fallback (get all) endpoint also found no matching students.`);
+              console.log(`⚠️ Fallback (get all) endpoint also found no matching students for Class ${idCardClass} Section ${idCardSection} AcademicYear ${academicYearToUse}.`);
             }
           }
         } catch (altApiError) {
@@ -857,12 +887,12 @@ const AcademicDetails: React.FC = () => {
       // --- Final check ---
       if (foundStudents.length > 0) {
         setIdCardStudents(foundStudents);
-        toast.success(`Loaded ${foundStudents.length} students for ID card generation`);
+        toast.success(`Loaded ${foundStudents.length} students for ID card generation (${academicYearToUse})`);
         console.log('✅ ID Card students loaded:', foundStudents);
       } else {
-        console.log('⚠️ No students found for the selected class and section after all attempts.');
+        console.log('⚠️ No students found for the selected class, section and academic year after all attempts.');
         setIdCardStudents([]);
-        toast.error(`No students found for Class ${idCardClass} Section ${idCardSection}. Please add students to this class first.`);
+        toast.error(`No students found for Class ${idCardClass} Section ${idCardSection} in ${academicYearToUse}. Please add students to this class first.`);
       }
     } catch (error: any) {
       console.error('Error in fetchStudentsForIdCards:', error);
@@ -936,27 +966,27 @@ const AcademicDetails: React.FC = () => {
   const convertImageToBase64 = (url: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       console.log('🖼️ Starting image conversion for URL:', url);
-      
+
       const img = new Image();
-      
+
       // Set crossOrigin before setting src
       img.crossOrigin = 'anonymous';
-      
+
       img.onload = () => {
         console.log('✅ Image loaded successfully, converting to base64...');
         try {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
-          
+
           if (!ctx) {
             reject(new Error('Failed to get canvas context'));
             return;
           }
-          
+
           canvas.width = img.width;
           canvas.height = img.height;
           ctx.drawImage(img, 0, 0);
-          
+
           const base64 = canvas.toDataURL('image/png');
           console.log('✅ Base64 conversion successful, length:', base64.length);
           resolve(base64);
@@ -965,13 +995,13 @@ const AcademicDetails: React.FC = () => {
           reject(error);
         }
       };
-      
+
       img.onerror = (error) => {
         console.error('❌ Image load error:', error);
         console.error('❌ Failed URL:', url);
         reject(new Error('Failed to load image from URL'));
       };
-      
+
       // Set src after setting up event handlers
       img.src = url;
       console.log('📡 Image src set, waiting for load...');
