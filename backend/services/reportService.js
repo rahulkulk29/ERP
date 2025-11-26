@@ -463,45 +463,72 @@ class ReportService {
       const db = connection.db;
       
       // STEP 1: Fetch ALL students from students collection first
+      // Use the SAME matching logic as the frontend to ensure consistency
       const studentsMatchQuery = {
         role: 'student',
         isActive: { $ne: false }
       };
 
-      // Add class filter
+      // Add class filter - PRIORITY: academicInfo.class > studentDetails.currentClass > class
       if (className) {
+        const classRegex = { $regex: `^${className.toString()}$`, $options: 'i' };
         studentsMatchQuery.$or = [
-          { 'studentDetails.currentClass': { $regex: `^${className.toString()}$`, $options: 'i' } },
-          { 'academicInfo.class': { $regex: `^${className.toString()}$`, $options: 'i' } },
-          { class: { $regex: `^${className.toString()}$`, $options: 'i' } }
+          { 'academicInfo.class': classRegex },
+          { 'studentDetails.academic.currentClass': classRegex },
+          { 'studentDetails.currentClass': classRegex },
+          { 'studentDetails.class': classRegex },
+          { class: classRegex }
         ];
       }
 
-      // Add section filter
+      // Add section filter - PRIORITY: academicInfo.section > studentDetails.currentSection > section
       if (section && section !== 'ALL' && section !== 'All' && section !== 'All Sections') {
+        const sectionRegex = { $regex: `^${section.toString()}$`, $options: 'i' };
         const sectionFilter = {
           $or: [
-            { 'studentDetails.currentSection': { $regex: `^${section.toString()}$`, $options: 'i' } },
-            { 'academicInfo.section': { $regex: `^${section.toString()}$`, $options: 'i' } },
-            { section: { $regex: `^${section.toString()}$`, $options: 'i' } }
+            { 'academicInfo.section': sectionRegex },
+            { 'studentDetails.academic.currentSection': sectionRegex },
+            { 'studentDetails.currentSection': sectionRegex },
+            { 'studentDetails.section': sectionRegex },
+            { section: sectionRegex }
           ]
         };
         
         if (studentsMatchQuery.$or) {
+          // Combine both class and section filters with $and
           studentsMatchQuery.$and = [
             { $or: studentsMatchQuery.$or },
             sectionFilter
           ];
           delete studentsMatchQuery.$or;
         } else {
-          studentsMatchQuery.$or = sectionFilter.$or;
+          // No class filter, just add section filter
+          Object.assign(studentsMatchQuery, sectionFilter);
+        }
+      }
+
+      // Add academic year filter if provided
+      if (academicYear) {
+        const academicYearFilter = {
+          $or: [
+            { 'studentDetails.academicYear': academicYear },
+            { 'studentDetails.academic.academicYear': academicYear },
+            { 'academicYear': academicYear },
+            { 'academicInfo.academicYear': academicYear }
+          ]
+        };
+        
+        if (studentsMatchQuery.$and) {
+          studentsMatchQuery.$and.push(academicYearFilter);
+        } else {
+          studentsMatchQuery.$and = [academicYearFilter];
         }
       }
 
       console.log('📋 Students collection query:', JSON.stringify(studentsMatchQuery, null, 2));
       
       const allStudents = await db.collection('students').find(studentsMatchQuery).toArray();
-      console.log(`✅ Found ${allStudents.length} students in students collection`);
+      console.log(`✅ Found ${allStudents.length} students in students collection matching class/section/academic year filters`);
       
       if (allStudents.length === 0) {
         console.log('⚠️ No students found in students collection');
@@ -510,7 +537,7 @@ class ReportService {
 
       // Get student IDs for lookup
       const studentIds = allStudents.map(s => s.userId);
-      console.log(`📝 Student IDs to lookup:`, studentIds.slice(0, 5), '...');
+      console.log(`📝 Student IDs to lookup:`, studentIds.slice(0, 5), `... (${studentIds.length} total)`);
 
       // STEP 2: Fetch results for these students
       const resultsMatchQuery = {
@@ -627,7 +654,8 @@ class ReportService {
       ]).toArray();
 
       console.log(`✅ Found attendance for ${studentAttendance.length} students`);
-
+      console.log(`📊 [DEBUG] Total students returned: ${allStudents.length}`);
+      
       // STEP 4: Create lookup maps
       const resultsMap = new Map();
       studentResults.forEach(result => {
@@ -639,20 +667,38 @@ class ReportService {
         attendanceMap.set(att.studentId, att.attendancePercentage);
       });
 
-      // STEP 5: Merge ALL students with their results and attendance
-      const students = allStudents.map(student => {
-        const studentName = student.name?.displayName || 
-                          (student.name?.firstName && student.name?.lastName 
-                            ? `${student.name.firstName} ${student.name.lastName}`
-                            : student.name?.firstName || student.name?.lastName || student.name || 'Unknown');
+      // STEP 5: Extract student names consistently - match frontend logic
+      const studentsArray = [];
+      allStudents.forEach(student => {
+        // Extract name using same priority as elsewhere in the codebase
+        let studentName = 'Unknown';
         
-        return {
+        if (student.name?.displayName) {
+          studentName = student.name.displayName;
+        } else if (student.name?.firstName && student.name?.lastName) {
+          studentName = `${student.name.firstName} ${student.name.lastName}`;
+        } else if (student.name?.firstName) {
+          studentName = student.name.firstName;
+        } else if (student.name?.lastName) {
+          studentName = student.name.lastName;
+        } else if (typeof student.name === 'string') {
+          studentName = student.name;
+        }
+        
+        // Debug: Log first few students' extracted details
+        if (studentsArray.length < 5) {
+          console.log(`📝 Student: ${studentName} (ID: ${student.userId}), Class: ${className}, Section: ${section}`);
+        }
+        
+        studentsArray.push({
           studentId: student.userId,
           studentName: studentName,
           avgMarks: resultsMap.get(student.userId) || 0,
           avgAttendance: attendanceMap.get(student.userId) || 0
-        };
+        });
       });
+      
+      const students = studentsArray;
 
       console.log(`✅ Returning ${students.length} students with enriched data`);
           
