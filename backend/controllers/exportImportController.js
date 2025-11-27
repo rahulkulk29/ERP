@@ -822,7 +822,6 @@ function getTeacherHeadersSimplified() {
     'First Name',
     'Last Name',
     'Email',
-    'Phone Number',
     'Date of Birth',
     'Gender',
     'Qualification',
@@ -872,9 +871,9 @@ function getStudentHeadersRobust() {
 function validateTeacherRowSimplified(normalizedRow, rowNumber) {
   const errors = [];
 
-  // Updated required keys to include new headers
+  // Updated required keys to include new headers (phone removed from template)
   const requiredKeys = [
-    'firstname', 'lastname', 'email', 'primaryphone',
+    'firstname', 'lastname', 'email',
     'dateofbirth', 'gender', 'qualification'
   ];
 
@@ -1564,7 +1563,8 @@ function generateCSV(users, role) {
 
       let fullAddress = '';
       if (typeof user.address === 'string') {
-        fullAddress = user.address;
+        // Only use if not 'NA' or similar placeholder
+        fullAddress = (user.address && user.address.trim() !== '' && user.address.toUpperCase() !== 'NA') ? user.address : '';
       } else if (user.address && typeof user.address === 'object') {
         const currentAddr = user.address.current || {};
         const permanentAddr = user.address.permanent || {};
@@ -1575,7 +1575,9 @@ function generateCSV(users, role) {
           currentAddr.city || permanentAddr.city,
           currentAddr.state || permanentAddr.state,
           currentAddr.pincode || permanentAddr.pincode
-        ].filter(Boolean);
+        ]
+          .filter(Boolean) // Remove empty values
+          .filter(part => part.trim() !== '' && part.toUpperCase() !== 'NA'); // Remove 'NA' or similar placeholders
 
         fullAddress = addressParts.join(', ');
       }
@@ -1587,7 +1589,6 @@ function generateCSV(users, role) {
             case 'First Name': value = name.firstName || user.firstName || user.first_name || ''; break;
             case 'Last Name': value = name.lastName || user.lastName || user.last_name || ''; break;
             case 'Email': value = user.email || ''; break;
-            case 'Phone Number': value = contact.primaryPhone || contact.phone || user.phone || user.mobile || user.phoneNumber || user.contactNumber || ''; break;
             case 'Date of Birth':
               // This now correctly reads from user.personal.dateOfBirth
               value = personal.dateOfBirth || '';

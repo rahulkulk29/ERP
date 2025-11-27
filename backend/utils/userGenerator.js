@@ -518,6 +518,14 @@ class UserGenerator {
       } else if (userData.role.toLowerCase() === 'teacher') {
         // --- TEACHER STRUCTURE (NEW IMPLEMENTATION) ---
         console.log(`👤 Generating Teacher user document for ${userId}`);
+        
+        // CRITICAL DEBUG: Log incoming teacher data
+        console.log('🏫 Incoming userData for teacher:', {
+          qualification: userData.qualification,
+          experience: userData.experience,
+          subjects: userData.subjects,
+          teacherDetails: userData.teacherDetails
+        });
 
         const createdBy = userData.createdBy || null;
 
@@ -541,6 +549,27 @@ class UserGenerator {
           current: undefined,
           sameAsPermanent: true
         };
+
+        // Parse DOB if provided
+        let dateOfBirth;
+        if (userData.dateOfBirth) {
+          try {
+            // Try parsing DD/MM/YYYY
+            if (userData.dateOfBirth.includes('/')) {
+              dateOfBirth = new Date(userData.dateOfBirth.split('/').reverse().join('-'));
+            } else {
+              // Assume it's an ISO string or other valid Date format
+              dateOfBirth = new Date(userData.dateOfBirth);
+            }
+            if (isNaN(dateOfBirth.getTime())) {
+              dateOfBirth = undefined; // Invalid date
+            }
+          } catch (e) {
+            dateOfBirth = undefined; // Parsing error
+          }
+        }
+
+        const gender = userData.gender || 'other';
 
         // Overwrite initial userDocument with a complete Teacher structure
         userDocument = {
@@ -569,6 +598,12 @@ class UserGenerator {
 
           address,
 
+          // CRITICAL FIX: Store personal information for teachers
+          personal: {
+            dateOfBirth: dateOfBirth,
+            gender: gender?.toLowerCase()
+          },
+
           identity: {
             aadharNumber: userData.aadharNumber || '',
             panNumber: userData.panNumber || ''
@@ -594,10 +629,18 @@ class UserGenerator {
           teacherDetails: {
             designation: userData.designation || 'Teacher',
             employeeId: userId,
-            qualification: userData.qualification || '',
-            experience: userData.experience || 0
+            qualification: userData.qualification || userData.teacherDetails?.qualification || userData.teacherDetails?.highestQualification || '',
+            experience: Number(userData.experience) || Number(userData.teacherDetails?.experience) || Number(userData.teacherDetails?.totalExperience) || 0,
+            subjects: userData.teacherDetails?.subjects || userData.subjects || [],
+            specialization: userData.teacherDetails?.specialization || '',
+            joiningDate: userData.teacherDetails?.joiningDate || userData.joiningDate || new Date(),
+            bankDetails: userData.teacherDetails?.bankDetails || {}
           }
         };
+        
+        // CRITICAL DEBUG: Log what's being stored
+        console.log('🏫 Teacher Details being stored:', userDocument.teacherDetails);
+
 
       } else {
         // Handle other roles (parent is the only remaining unimplemented role expected here)
@@ -1121,6 +1164,9 @@ class UserGenerator {
         if (updateData.subjects !== undefined && Array.isArray(updateData.subjects)) {
           updateFields[`${rolePrefix}.subjects`] = updateData.subjects.map(s => String(s).trim()).filter(Boolean);
         }
+        // Add teacher personal data updates
+        if (updateData.dateOfBirth !== undefined) updateFields['personal.dateOfBirth'] = updateData.dateOfBirth ? new Date(updateData.dateOfBirth) : null;
+        if (updateData.gender !== undefined) updateFields['personal.gender'] = updateData.gender;
       }
 
       updateFields.updatedAt = new Date();

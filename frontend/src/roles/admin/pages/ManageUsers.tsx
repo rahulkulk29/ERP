@@ -1222,7 +1222,7 @@ const ManageUsers: React.FC = () => {
     section: '',
     rollNumber: '',
     qualification: '',
-    experience: '',
+    experience: 0,
     subjects: [],
     adminLevel: '',
     accessLevel: '',
@@ -1811,7 +1811,7 @@ const ManageUsers: React.FC = () => {
       section: '',
       rollNumber: '',
       qualification: '',
-      experience: '',
+      experience: 0,
       subjects: [],
       adminLevel: '',
       accessLevel: '',
@@ -2889,6 +2889,32 @@ const ManageUsers: React.FC = () => {
           // Note: Personal info (DOB, gender) is already added to the root `userData` object,
           // which the backend controller will read.
         };
+        
+        // CRITICAL DEBUG: Log teacher details before sending
+        console.log('🏫 Teacher Form Data:', {
+          qualification: formData.qualification,
+          experience: formData.experience,
+          subjects: formData.subjects,
+          teacherDetailsQual: formData.teacherDetails?.qualification,
+          teacherDetailsExp: formData.teacherDetails?.experience
+        });
+        console.log('🏫 Teacher Details being sent to backend:', userData.teacherDetails);
+        
+        // CRITICAL FIX: Explicitly ensure DOB and gender are included in userData for teachers
+        // These fields are filled in the common "Basic Information" section
+        if (!userData.dateOfBirth && formData.dateOfBirth) {
+          userData.dateOfBirth = formData.dateOfBirth;
+        }
+        if (!userData.gender && formData.gender) {
+          userData.gender = formData.gender;
+        }
+        // Also ensure qualification and experience are at root level as fallback
+        if (!userData.qualification && formData.qualification) {
+          userData.qualification = formData.qualification;
+        }
+        if (!userData.experience && formData.experience) {
+          userData.experience = formData.experience;
+        }
         // --- END OF CORRECTED LOGIC ---
       } else if (formData.role === 'admin') {
         userData.adminDetails = {
@@ -3041,6 +3067,10 @@ const ManageUsers: React.FC = () => {
     const sBank = sFinance.bankDetails || {};
     const sTransport = sDetails.transport || {};
     const sMedical = sDetails.medical || {};
+
+    // Helper to safely access teacher personal data (flat structure)
+    const tPersonal = userData.personal || {};
+    const tTeacherDetails = userData.teacherDetails || {};
 
     // Parse name if it's a string (Handles cases where name is just "John Doe")
     let parsedFirstName = '';
@@ -3251,6 +3281,13 @@ const ManageUsers: React.FC = () => {
       employeeId: userData.teacherDetails?.employeeId || '',
       department: userData.teacherDetails?.department || '',
       joiningDate: formatDateForInput(userData.teacherDetails?.joiningDate || ''),
+      // Teacher personal data (from flat personal object)
+      dateOfBirth: formatDateForInput(tPersonal.dateOfBirth || userData.dateOfBirth || ''),
+      gender: tPersonal.gender || userData.gender || 'male',
+      // Teacher address
+      address: userData.address?.permanent?.street || userData.address || '',
+      currentAddress: userData.address?.current?.street || userData.currentAddress || '',
+      permanentAddress: userData.address?.permanent?.street || userData.permanentAddress || '',
 
       // Admin Information (if applicable)
       adminLevel: userData.adminDetails?.adminType || '',
@@ -3821,7 +3858,10 @@ const ManageUsers: React.FC = () => {
       } else if (editingUser.role === 'teacher') {
         updateData.qualification = formData.qualification;
         updateData.experience = formData.experience;
-        updateData.subjects = formData.subjects;
+        // Convert comma-separated subjects string to array
+        updateData.subjects = formData.subjects
+          ? formData.subjects.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : [];
         updateData.department = formData.department;
         updateData.employeeId = formData.employeeId;
         updateData.joiningDate = formData.joiningDate;
@@ -4243,8 +4283,15 @@ const ManageUsers: React.FC = () => {
         return requiredPresent;
       }
 
-      // For teacher/admin keep a lighter check: name + email + phone (if shown required)
-      if (formData.role === 'teacher' || formData.role === 'admin') {
+      // For teacher: name + email (phone is optional - matching server-side validation in validateFormBeforeSubmit)
+      if (formData.role === 'teacher') {
+        const qualification = String(formData.teacherDetails?.highestQualification || formData.qualification || '').trim();
+        const hasQualification = qualification !== '';
+        return hasFirst && hasLast && hasEmail && hasQualification;
+      }
+
+      // For admin: name + email + phone
+      if (formData.role === 'admin') {
         return hasFirst && hasLast && hasEmail && hasPhone;
       }
 
@@ -9633,6 +9680,27 @@ const ManageUsers: React.FC = () => {
                   <div className="bg-green-50 p-4 rounded-lg">
                     <h4 className="text-lg font-semibold text-gray-800 mb-4">Professional Information</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                        <input
+                          type="date"
+                          value={formData.dateOfBirth}
+                          onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                        <select
+                          value={formData.gender}
+                          onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                        >
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Qualification *</label>
                         <input
